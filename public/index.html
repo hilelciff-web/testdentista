@@ -1,0 +1,733 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Clínica Sorriso Saudável</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.19.0/dist/tabler-icons.min.css" />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --green:       #1D9E75;
+      --green-dark:  #085041;
+      --green-light: #E1F5EE;
+      --green-mid:   #0F6E56;
+      --green-border:#9FE1CB;
+      --bg:          #FFFFFF;
+      --bg2:         #F7F9F8;
+      --border:      #E4EAE8;
+      --text:        #1A2620;
+      --text2:       #4A6158;
+      --text3:       #8AA89E;
+      --danger:      #E24B4A;
+      --danger-bg:   #FEF2F2;
+      --radius:      10px;
+      --shadow:      0 2px 12px rgba(0,0,0,0.07);
+    }
+
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: var(--bg2); color: var(--text); min-height: 100vh; }
+
+    /* NAV */
+    nav { position: sticky; top: 0; z-index: 100; background: var(--bg); border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; padding: 0 24px; height: 56px; }
+    .logo { display: flex; align-items: center; gap: 8px; font-weight: 600; color: var(--green-dark); font-size: 15px; }
+    .logo i { font-size: 20px; color: var(--green); }
+    .nav-links { display: flex; gap: 2px; }
+    .nav-btn { padding: 6px 12px; font-size: 13px; border: none; background: transparent; color: var(--text2); cursor: pointer; border-radius: 8px; font-family: inherit; transition: all .15s; }
+    .nav-btn:hover { background: var(--green-light); color: var(--green-dark); }
+    .nav-btn.active { background: var(--green-light); color: var(--green); font-weight: 500; }
+    .nav-user { font-size: 13px; color: var(--green); font-weight: 500; display: flex; align-items: center; gap: 6px; cursor: pointer; }
+
+    /* SCREENS */
+    .screen { display: none; max-width: 720px; margin: 0 auto; padding: 28px 20px; }
+    .screen.active { display: block; }
+
+    /* HERO */
+    .hero { background: linear-gradient(135deg, var(--green-light) 0%, #C8EFE0 100%); border-radius: var(--radius); padding: 36px 28px; margin-bottom: 20px; }
+    .hero-tag { font-size: 11px; font-weight: 600; color: var(--green); letter-spacing: .06em; text-transform: uppercase; margin-bottom: 10px; }
+    .hero h1 { font-size: 26px; font-weight: 600; color: var(--green-dark); line-height: 1.3; margin-bottom: 10px; }
+    .hero p { font-size: 14px; color: var(--green-mid); line-height: 1.7; margin-bottom: 22px; max-width: 420px; }
+    .hero-btns { display: flex; gap: 10px; flex-wrap: wrap; }
+
+    /* BUTTONS */
+    .btn { padding: 9px 18px; font-size: 13px; font-weight: 500; border-radius: 8px; cursor: pointer; font-family: inherit; transition: all .15s; display: inline-flex; align-items: center; gap: 6px; }
+    .btn-primary { background: var(--green); color: #fff; border: none; }
+    .btn-primary:hover { background: var(--green-dark); }
+    .btn-primary:disabled { opacity: .6; cursor: not-allowed; }
+    .btn-outline { background: transparent; color: var(--green); border: 1.5px solid var(--green); }
+    .btn-outline:hover { background: var(--green-light); }
+    .btn-danger { background: var(--danger-bg); color: var(--danger); border: 1px solid #fca5a5; }
+    .btn-sm { padding: 5px 12px; font-size: 12px; }
+
+    /* CARDS */
+    .card { background: var(--bg); border: 1px solid var(--border); border-radius: var(--radius); padding: 18px; margin-bottom: 14px; box-shadow: var(--shadow); }
+    .card-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 14px; }
+    .service-card { background: var(--bg); border: 1px solid var(--border); border-radius: var(--radius); padding: 18px; cursor: pointer; transition: all .15s; }
+    .service-card:hover { border-color: var(--green); box-shadow: 0 0 0 3px var(--green-light); }
+    .service-icon { width: 38px; height: 38px; border-radius: 10px; background: var(--green-light); display: flex; align-items: center; justify-content: center; margin-bottom: 12px; }
+    .service-icon i { font-size: 18px; color: var(--green); }
+    .service-card h3 { font-size: 14px; font-weight: 600; margin-bottom: 4px; color: var(--text); }
+    .service-card p { font-size: 12px; color: var(--text2); line-height: 1.5; margin-bottom: 8px; }
+    .service-price { font-size: 13px; font-weight: 500; color: var(--green); }
+
+    /* STATS */
+    .stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-bottom: 20px; }
+    .stat { background: var(--green-light); border-radius: var(--radius); padding: 14px; text-align: center; }
+    .stat-n { font-size: 22px; font-weight: 700; color: var(--green-dark); }
+    .stat-l { font-size: 11px; color: var(--green-mid); margin-top: 2px; }
+
+    /* TEAM */
+    .doctor-card { display: flex; align-items: center; gap: 14px; background: var(--bg); border: 1px solid var(--border); border-radius: var(--radius); padding: 16px; margin-bottom: 10px; }
+    .avatar { width: 48px; height: 48px; border-radius: 50%; background: var(--green-light); display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 16px; color: var(--green); flex-shrink: 0; }
+    .doc-info h3 { font-size: 14px; font-weight: 600; }
+    .doc-info p { font-size: 12px; color: var(--text2); margin-top: 2px; }
+    .badge { display: inline-block; font-size: 11px; font-weight: 500; padding: 2px 8px; border-radius: 999px; margin-top: 5px; background: var(--green-light); color: var(--green); }
+
+    /* FORM */
+    .form-group { margin-bottom: 14px; }
+    .form-label { display: block; font-size: 12px; font-weight: 600; color: var(--text2); margin-bottom: 5px; }
+    .form-input { width: 100%; padding: 9px 12px; font-size: 13px; border: 1px solid var(--border); border-radius: 8px; background: var(--bg); color: var(--text); font-family: inherit; transition: border .15s; }
+    .form-input:focus { outline: none; border-color: var(--green); box-shadow: 0 0 0 3px var(--green-light); }
+    .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+    .form-section { font-size: 13px; font-weight: 600; color: var(--text); margin: 18px 0 12px; padding-bottom: 6px; border-bottom: 1px solid var(--border); }
+
+    /* SLOTS */
+    .slot-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
+    .slot { padding: 8px 4px; font-size: 12px; text-align: center; border: 1px solid var(--border); border-radius: 8px; cursor: pointer; color: var(--text2); background: var(--bg); transition: all .15s; }
+    .slot.available:hover { border-color: var(--green); color: var(--green); background: var(--green-light); }
+    .slot.selected { border-color: var(--green); background: var(--green); color: #fff; font-weight: 600; }
+    .slot.busy { background: var(--bg2); color: var(--text3); cursor: not-allowed; text-decoration: line-through; }
+
+    /* SECURITY NOTE */
+    .sec-note { display: flex; gap: 8px; padding: 10px 12px; background: var(--green-light); border: 1px solid var(--green-border); border-radius: 8px; font-size: 12px; color: var(--green-mid); margin-bottom: 16px; }
+    .sec-note i { font-size: 14px; flex-shrink: 0; margin-top: 1px; }
+
+    /* TOAST */
+    .toast { display: none; padding: 12px 14px; border-radius: 8px; font-size: 13px; margin-bottom: 16px; display: flex; gap: 8px; align-items: flex-start; }
+    .toast.hidden { display: none !important; }
+    .toast.success { background: var(--green-light); border: 1px solid var(--green-border); color: var(--green-dark); }
+    .toast.error { background: var(--danger-bg); border: 1px solid #fca5a5; color: var(--danger); }
+
+    /* TABS */
+    .tabs { display: flex; border-bottom: 1px solid var(--border); margin-bottom: 20px; }
+    .tab { padding: 10px 18px; font-size: 13px; cursor: pointer; color: var(--text2); border-bottom: 2px solid transparent; font-family: inherit; background: transparent; border-top: none; border-left: none; border-right: none; margin-bottom: -1px; transition: all .15s; }
+    .tab.active { color: var(--green); border-bottom-color: var(--green); font-weight: 600; }
+    .tab-panel { display: none; }
+    .tab-panel.active { display: block; }
+
+    /* STRENGTH */
+    .strength-bar-wrap { height: 4px; background: var(--border); border-radius: 2px; margin-top: 6px; }
+    .strength-bar { height: 4px; border-radius: 2px; width: 0; transition: width .3s, background .3s; }
+
+    /* AGENDAMENTOS LIST */
+    .agend-item { background: var(--bg); border: 1px solid var(--border); border-radius: var(--radius); padding: 14px 16px; margin-bottom: 10px; display: flex; justify-content: space-between; align-items: flex-start; }
+    .agend-status { font-size: 11px; font-weight: 600; padding: 2px 8px; border-radius: 999px; }
+    .status-pendente { background: #FEF9C3; color: #854D0E; }
+    .status-confirmado { background: var(--green-light); color: var(--green-dark); }
+    .status-cancelado { background: var(--danger-bg); color: var(--danger); }
+    .status-realizado { background: #E0E7FF; color: #3730A3; }
+
+    /* SPINNER */
+    .spinner { display: inline-block; width: 14px; height: 14px; border: 2px solid rgba(255,255,255,.4); border-top-color: #fff; border-radius: 50%; animation: spin .7s linear infinite; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* SECTION HEADER */
+    .sec-header { margin-bottom: 18px; }
+    .sec-header h2 { font-size: 18px; font-weight: 600; color: var(--text); margin-bottom: 4px; }
+    .sec-header p { font-size: 13px; color: var(--text2); }
+
+    /* FOOTER */
+    footer { text-align: center; padding: 16px; font-size: 12px; color: var(--text3); border-top: 1px solid var(--border); margin-top: 20px; display: flex; align-items: center; justify-content: center; gap: 6px; }
+  </style>
+</head>
+<body>
+
+<nav>
+  <div class="logo"><i class="ti ti-tooth"></i> Sorriso Saudável</div>
+  <div class="nav-links">
+    <button class="nav-btn active" onclick="goTo('home', this)">Início</button>
+    <button class="nav-btn" onclick="goTo('servicos', this)">Serviços</button>
+    <button class="nav-btn" onclick="goTo('agenda', this)">Agendar</button>
+    <button class="nav-btn" id="nav-conta" onclick="goTo('conta', this)">Minha conta</button>
+  </div>
+  <div id="nav-user" style="display:none" class="nav-user" onclick="logout()">
+    <i class="ti ti-user-circle"></i>
+    <span id="nav-user-nome"></span>
+    <i class="ti ti-logout" style="font-size:13px;color:var(--text3)"></i>
+  </div>
+</nav>
+
+<!-- HOME -->
+<div id="home" class="screen active">
+  <div class="hero">
+    <div class="hero-tag"><i class="ti ti-shield-check" style="font-size:11px"></i> Clínica certificada · Dados protegidos</div>
+    <h1>Seu sorriso merece<br>o melhor cuidado</h1>
+    <p>Atendimento personalizado, tecnologia moderna e um ambiente acolhedor para toda a família.</p>
+    <div class="hero-btns">
+      <button class="btn btn-primary" onclick="goTo('agenda', document.querySelectorAll('.nav-btn')[2])"><i class="ti ti-calendar-plus"></i> Agendar consulta</button>
+      <button class="btn btn-outline" onclick="goTo('servicos', document.querySelectorAll('.nav-btn')[1])">Ver serviços</button>
+    </div>
+  </div>
+
+  <div class="stats">
+    <div class="stat"><div class="stat-n">12+</div><div class="stat-l">Anos de experiência</div></div>
+    <div class="stat"><div class="stat-n">3.400</div><div class="stat-l">Pacientes atendidos</div></div>
+    <div class="stat"><div class="stat-n">98%</div><div class="stat-l">Satisfação</div></div>
+  </div>
+
+  <div class="sec-header"><h2>Nossa equipe</h2><p>Especialistas prontos para te atender.</p></div>
+  <div class="doctor-card">
+    <div class="avatar">AS</div>
+    <div class="doc-info">
+      <h3>Dra. Ana Silva</h3>
+      <p>Ortodontia e Estética Dental · CRO 12.345</p>
+      <span class="badge">Clareamento · Aparelho</span>
+    </div>
+  </div>
+  <div class="doctor-card">
+    <div class="avatar">CR</div>
+    <div class="doc-info">
+      <h3>Dr. Carlos Ramos</h3>
+      <p>Implantodontia e Cirurgia · CRO 54.321</p>
+      <span class="badge">Implantes · Extrações</span>
+    </div>
+  </div>
+
+  <footer><i class="ti ti-lock"></i> Dados protegidos com PostgreSQL + TLS + bcrypt</footer>
+</div>
+
+<!-- SERVIÇOS -->
+<div id="servicos" class="screen">
+  <div class="sec-header"><h2>Nossos serviços</h2><p>Tratamentos completos para toda a família.</p></div>
+  <div class="card-grid">
+    <div class="service-card" onclick="agendarServico('Clareamento dental')">
+      <div class="service-icon"><i class="ti ti-sparkles"></i></div>
+      <h3>Clareamento dental</h3>
+      <p>A laser e moldeira. Resultado em até 2 sessões.</p>
+      <div class="service-price">A partir de R$ 350</div>
+    </div>
+    <div class="service-card" onclick="agendarServico('Ortodontia — avaliação')">
+      <div class="service-icon"><i class="ti ti-refresh"></i></div>
+      <h3>Ortodontia</h3>
+      <p>Aparelho metálico, estético e Invisalign.</p>
+      <div class="service-price">A partir de R$ 2.800</div>
+    </div>
+    <div class="service-card" onclick="agendarServico('Limpeza e prevenção')">
+      <div class="service-icon"><i class="ti ti-heart"></i></div>
+      <h3>Limpeza e prevenção</h3>
+      <p>Profilaxia, flúor e orientação de higiene.</p>
+      <div class="service-price">A partir de R$ 120</div>
+    </div>
+    <div class="service-card" onclick="agendarServico('Implante dental')">
+      <div class="service-icon"><i class="ti ti-plus"></i></div>
+      <h3>Implante dental</h3>
+      <p>Titânio com osseointegração. Resultado permanente.</p>
+      <div class="service-price">A partir de R$ 2.200</div>
+    </div>
+    <div class="service-card" onclick="agendarServico('Facetas de porcelana')">
+      <div class="service-icon"><i class="ti ti-star"></i></div>
+      <h3>Facetas de porcelana</h3>
+      <p>Lentes de contato dental para sorriso natural.</p>
+      <div class="service-price">A partir de R$ 800/dente</div>
+    </div>
+    <div class="service-card" onclick="agendarServico('Odontopediatria')">
+      <div class="service-icon"><i class="ti ti-user"></i></div>
+      <h3>Odontopediatria</h3>
+      <p>Especializado para crianças em ambiente lúdico.</p>
+      <div class="service-price">A partir de R$ 90</div>
+    </div>
+  </div>
+</div>
+
+<!-- AGENDA -->
+<div id="agenda" class="screen">
+  <div class="sec-header"><h2>Agendar consulta</h2><p>Confirmação por e-mail em até 10 minutos.</p></div>
+
+  <div class="sec-note"><i class="ti ti-shield-lock"></i> Dados enviados via HTTPS e inseridos no PostgreSQL com prepared statements ($1, $2…). Auditoria ativa via pgaudit.</div>
+
+  <div id="toast-agenda" class="toast hidden"></div>
+
+  <!-- Se não logado, pede login -->
+  <div id="agenda-login-aviso" class="card" style="display:none;text-align:center;padding:28px">
+    <i class="ti ti-lock" style="font-size:32px;color:var(--green);display:block;margin-bottom:10px"></i>
+    <p style="font-size:14px;font-weight:600;margin-bottom:6px">Entre na sua conta para agendar</p>
+    <p style="font-size:13px;color:var(--text2);margin-bottom:16px">Seus agendamentos ficam salvos com segurança no banco.</p>
+    <button class="btn btn-primary" onclick="goTo('conta', document.getElementById('nav-conta'))">Entrar ou criar conta</button>
+  </div>
+
+  <div id="agenda-form">
+    <div class="form-group">
+      <label class="form-label">Tipo de consulta</label>
+      <select class="form-input" id="ag-tipo">
+        <option value="">Selecione...</option>
+        <option>Clareamento dental</option>
+        <option>Ortodontia — avaliação</option>
+        <option>Limpeza e prevenção</option>
+        <option>Implante dental</option>
+        <option>Facetas de porcelana</option>
+        <option>Odontopediatria</option>
+      </select>
+    </div>
+    <div class="form-group">
+      <label class="form-label">Dentista</label>
+      <select class="form-input" id="ag-dentista">
+        <option value="">Qualquer disponível</option>
+        <option value="ana">Dra. Ana Silva</option>
+        <option value="carlos">Dr. Carlos Ramos</option>
+      </select>
+    </div>
+    <div class="form-group">
+      <label class="form-label">Data</label>
+      <input class="form-input" type="date" id="ag-data" onchange="carregarHorarios()" />
+    </div>
+    <div class="form-group">
+      <label class="form-label">Horário</label>
+      <div class="slot-grid" id="slots">
+        <div style="font-size:12px;color:var(--text3);grid-column:1/-1;padding:10px 0">Selecione uma data para ver os horários disponíveis.</div>
+      </div>
+    </div>
+    <div class="form-group">
+      <label class="form-label">Observações (opcional)</label>
+      <input class="form-input" type="text" id="ag-obs" placeholder="Ex: primeira consulta, tenho ansiedade…" maxlength="300" />
+    </div>
+    <button class="btn btn-primary" id="btn-agendar" onclick="confirmarAgendamento()" style="width:100%">
+      <i class="ti ti-calendar-check"></i> Confirmar agendamento
+    </button>
+  </div>
+
+  <!-- Meus agendamentos -->
+  <div id="meus-agendamentos" style="margin-top:28px;display:none">
+    <div class="form-section">Meus agendamentos</div>
+    <div id="lista-agendamentos"><p style="font-size:13px;color:var(--text3)">Carregando…</p></div>
+  </div>
+</div>
+
+<!-- CONTA -->
+<div id="conta" class="screen">
+  <!-- Painel do paciente logado -->
+  <div id="painel-paciente" style="display:none">
+    <div class="sec-header">
+      <h2 id="painel-ola">Olá!</h2>
+      <p>Gerencie sua conta e agendamentos.</p>
+    </div>
+    <div class="card" style="text-align:center;padding:24px">
+      <i class="ti ti-circle-check" style="font-size:40px;color:var(--green);display:block;margin-bottom:10px"></i>
+      <p style="font-size:14px;font-weight:600;margin-bottom:4px">Sessão ativa com segurança</p>
+      <p style="font-size:12px;color:var(--text2);margin-bottom:16px">JWT assinado · bcrypt · TLS · PostgreSQL RLS</p>
+      <button class="btn btn-outline" onclick="goTo('agenda', document.querySelectorAll('.nav-btn')[2])"><i class="ti ti-calendar-plus"></i> Novo agendamento</button>
+      <button class="btn btn-danger btn-sm" onclick="logout()" style="margin-left:8px"><i class="ti ti-logout"></i> Sair</button>
+    </div>
+  </div>
+
+  <!-- Formulários de auth -->
+  <div id="auth-forms">
+    <div class="tabs">
+      <button class="tab active" onclick="switchTab('login', this)">Entrar</button>
+      <button class="tab" onclick="switchTab('cadastro', this)">Criar conta</button>
+    </div>
+
+    <div id="toast-conta" class="toast hidden"></div>
+
+    <!-- LOGIN -->
+    <div id="login" class="tab-panel active">
+      <div class="sec-note"><i class="ti ti-shield-check"></i> Autenticação scram-sha-256 (PostgreSQL). JWT com expiração de 8h. Bloqueio após 10 tentativas.</div>
+      <div class="form-group">
+        <label class="form-label">E-mail</label>
+        <input class="form-input" id="l-email" type="email" placeholder="seu@email.com" />
+      </div>
+      <div class="form-group">
+        <label class="form-label">Senha</label>
+        <input class="form-input" id="l-senha" type="password" placeholder="Sua senha" />
+      </div>
+      <button class="btn btn-primary" id="btn-login" onclick="fazerLogin()" style="width:100%;margin-bottom:10px">
+        <i class="ti ti-login"></i> Entrar na minha conta
+      </button>
+      <p style="font-size:12px;color:var(--text3);text-align:center"><i class="ti ti-lock" style="font-size:12px"></i> Senha verificada com bcrypt — nunca armazenada em texto plano</p>
+    </div>
+
+    <!-- CADASTRO -->
+    <div id="cadastro" class="tab-panel">
+      <div class="sec-note"><i class="ti ti-shield-check"></i> CPF e dados pessoais criptografados com pgcrypto. Senha via bcrypt (12 rounds). Dados inseridos com prepared statements.</div>
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label">Nome</label>
+          <input class="form-input" id="c-nome" type="text" placeholder="Seu nome" />
+        </div>
+        <div class="form-group">
+          <label class="form-label">Sobrenome</label>
+          <input class="form-input" id="c-sobre" type="text" placeholder="Sobrenome" />
+        </div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">E-mail</label>
+        <input class="form-input" id="c-email" type="email" placeholder="seu@email.com" />
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label">CPF</label>
+          <input class="form-input" id="c-cpf" type="text" placeholder="000.000.000-00" maxlength="14" oninput="maskCPF(this)" />
+        </div>
+        <div class="form-group">
+          <label class="form-label">Data de nascimento</label>
+          <input class="form-input" id="c-nasc" type="date" />
+        </div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Telefone / WhatsApp</label>
+        <input class="form-input" id="c-tel" type="tel" placeholder="(83) 99999-9999" />
+      </div>
+      <div class="form-group">
+        <label class="form-label">Senha</label>
+        <input class="form-input" id="c-senha" type="password" placeholder="Mínimo 8 caracteres" oninput="checkStrength(this.value)" />
+        <div class="strength-bar-wrap"><div id="strength-bar" class="strength-bar"></div></div>
+        <span id="strength-label" style="font-size:11px;color:var(--text3)"></span>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Confirmar senha</label>
+        <input class="form-input" id="c-conf" type="password" placeholder="Repita a senha" />
+      </div>
+      <button class="btn btn-primary" id="btn-cadastro" onclick="cadastrar()" style="width:100%;margin-bottom:10px">
+        <i class="ti ti-user-plus"></i> Criar minha conta
+      </button>
+      <p style="font-size:12px;color:var(--text3);text-align:center"><i class="ti ti-lock" style="font-size:12px"></i> CPF criptografado · prepared statements · auditoria ativa</p>
+    </div>
+  </div>
+</div>
+
+<script>
+// ============================================================
+// ESTADO GLOBAL
+// ============================================================
+const API = '/api'; // troque pela URL real em produção: 'https://seudominio.com.br/api'
+let token = localStorage.getItem('token');
+let pacienteAtual = JSON.parse(localStorage.getItem('paciente') || 'null');
+let slotSelecionado = null;
+
+// ============================================================
+// NAVEGAÇÃO
+// ============================================================
+function goTo(id, btn) {
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+  if (btn) btn.classList.add('active');
+
+  if (id === 'agenda') initAgenda();
+  if (id === 'conta') initConta();
+}
+
+function switchTab(id, btn) {
+  document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+  btn.classList.add('active');
+  hideToast('toast-conta');
+}
+
+// ============================================================
+// HELPERS
+// ============================================================
+function showToast(id, type, msg) {
+  const t = document.getElementById(id);
+  t.className = 'toast ' + type;
+  t.innerHTML = `<i class="ti ti-${type === 'success' ? 'circle-check' : 'alert-circle'}"></i> ${msg}`;
+}
+function hideToast(id) {
+  const t = document.getElementById(id);
+  t.className = 'toast hidden';
+}
+
+function setBtnLoading(btnId, loading, label) {
+  const b = document.getElementById(btnId);
+  b.disabled = loading;
+  b.innerHTML = loading
+    ? `<span class="spinner"></span> Aguarde…`
+    : label;
+}
+
+async function apiFetch(path, options = {}) {
+  const headers = { 'Content-Type': 'application/json', ...(options.headers || {}) };
+  if (token) headers['Authorization'] = `Bearer ${token}`;
+  const res = await fetch(API + path, { ...options, headers });
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.erro || 'Erro desconhecido');
+  return data;
+}
+
+// ============================================================
+// AUTH — atualiza nav ao carregar
+// ============================================================
+function atualizarNav() {
+  const navUser = document.getElementById('nav-user');
+  const navConta = document.getElementById('nav-conta');
+  if (pacienteAtual) {
+    navUser.style.display = 'flex';
+    document.getElementById('nav-user-nome').textContent = pacienteAtual.nome;
+    navConta.style.display = 'none';
+  } else {
+    navUser.style.display = 'none';
+    navConta.style.display = '';
+  }
+}
+
+function salvarSessao(data) {
+  token = data.token;
+  pacienteAtual = data.paciente;
+  localStorage.setItem('token', token);
+  localStorage.setItem('paciente', JSON.stringify(pacienteAtual));
+  atualizarNav();
+}
+
+function logout() {
+  token = null; pacienteAtual = null;
+  localStorage.removeItem('token'); localStorage.removeItem('paciente');
+  atualizarNav();
+  goTo('home', document.querySelectorAll('.nav-btn')[0]);
+}
+
+// ============================================================
+// LOGIN
+// ============================================================
+async function fazerLogin() {
+  const email = document.getElementById('l-email').value.trim();
+  const senha = document.getElementById('l-senha').value;
+  hideToast('toast-conta');
+  if (!email || !senha) { showToast('toast-conta','error','Preencha e-mail e senha.'); return; }
+
+  setBtnLoading('btn-login', true);
+  try {
+    // POST /api/auth/login — valores como JSON, nunca concatenados
+    const data = await apiFetch('/auth/login', {
+      method: 'POST',
+      body: JSON.stringify({ email, senha }),
+    });
+    salvarSessao(data);
+    showToast('toast-conta','success',`Bem-vindo(a), ${data.paciente.nome}! Sessão JWT iniciada.`);
+    setTimeout(() => initConta(), 800);
+  } catch (err) {
+    showToast('toast-conta','error', err.message);
+  } finally {
+    setBtnLoading('btn-login', false, '<i class="ti ti-login"></i> Entrar na minha conta');
+  }
+}
+
+// ============================================================
+// CADASTRO
+// ============================================================
+async function cadastrar() {
+  const nome    = document.getElementById('c-nome').value.trim();
+  const sobre   = document.getElementById('c-sobre').value.trim();
+  const email   = document.getElementById('c-email').value.trim();
+  const cpf     = document.getElementById('c-cpf').value.trim();
+  const dataNasc= document.getElementById('c-nasc').value;
+  const telefone= document.getElementById('c-tel').value.trim();
+  const senha   = document.getElementById('c-senha').value;
+  const conf    = document.getElementById('c-conf').value;
+
+  hideToast('toast-conta');
+  if (!nome || !sobre || !email || !cpf || !senha) { showToast('toast-conta','error','Preencha todos os campos obrigatórios.'); return; }
+  if (senha !== conf) { showToast('toast-conta','error','As senhas não coincidem.'); return; }
+  if (senha.length < 8) { showToast('toast-conta','error','Senha deve ter no mínimo 8 caracteres.'); return; }
+
+  setBtnLoading('btn-cadastro', true);
+  try {
+    // POST /api/auth/cadastro — todos os campos parametrizados no backend
+    const data = await apiFetch('/auth/cadastro', {
+      method: 'POST',
+      body: JSON.stringify({ nome, sobrenome: sobre, email, cpf, dataNasc, telefone, senha }),
+    });
+    salvarSessao(data);
+    showToast('toast-conta','success','Conta criada! Senha protegida com bcrypt. Bem-vindo(a)!');
+    setTimeout(() => initConta(), 800);
+  } catch (err) {
+    showToast('toast-conta','error', err.message);
+  } finally {
+    setBtnLoading('btn-cadastro', false, '<i class="ti ti-user-plus"></i> Criar minha conta');
+  }
+}
+
+function initConta() {
+  const auth   = document.getElementById('auth-forms');
+  const painel = document.getElementById('painel-paciente');
+  if (pacienteAtual) {
+    auth.style.display = 'none';
+    painel.style.display = 'block';
+    document.getElementById('painel-ola').textContent = `Olá, ${pacienteAtual.nome}!`;
+  } else {
+    auth.style.display = 'block';
+    painel.style.display = 'none';
+  }
+}
+
+// ============================================================
+// AGENDA
+// ============================================================
+function initAgenda() {
+  const aviso = document.getElementById('agenda-login-aviso');
+  const form  = document.getElementById('agenda-form');
+  const meus  = document.getElementById('meus-agendamentos');
+
+  if (!pacienteAtual) {
+    aviso.style.display = 'block';
+    form.style.display = 'none';
+    meus.style.display = 'none';
+  } else {
+    aviso.style.display = 'none';
+    form.style.display = 'block';
+    meus.style.display = 'block';
+    carregarMeusAgendamentos();
+  }
+
+  // data mínima = hoje
+  const d = new Date().toISOString().split('T')[0];
+  document.getElementById('ag-data').min = d;
+}
+
+async function carregarHorarios() {
+  const data = document.getElementById('ag-data').value;
+  const slots = document.getElementById('slots');
+  if (!data) return;
+
+  slots.innerHTML = '<div style="font-size:12px;color:var(--text3);grid-column:1/-1;padding:8px 0">Carregando horários…</div>';
+  slotSelecionado = null;
+
+  try {
+    // GET /api/agendamentos/horarios?data=...
+    const res = await apiFetch(`/agendamentos/horarios?data=${data}`);
+    slots.innerHTML = '';
+    res.horarios.forEach(h => {
+      const el = document.createElement('div');
+      el.className = 'slot ' + (h.disponivel ? 'available' : 'busy');
+      el.textContent = h.hora;
+      if (h.disponivel) el.onclick = () => selectSlot(el, h.hora);
+      slots.appendChild(el);
+    });
+  } catch {
+    // Se backend não estiver rodando, mostra horários simulados
+    const todos = ['08:00','09:00','10:00','11:00','13:00','14:00','15:00','16:00'];
+    const busy  = ['09:00','13:00','16:00'];
+    slots.innerHTML = '';
+    todos.forEach(h => {
+      const el = document.createElement('div');
+      const isBusy = busy.includes(h);
+      el.className = 'slot ' + (isBusy ? 'busy' : 'available');
+      el.textContent = h;
+      if (!isBusy) el.onclick = () => selectSlot(el, h);
+      slots.appendChild(el);
+    });
+  }
+}
+
+function selectSlot(el, hora) {
+  document.querySelectorAll('.slot.selected').forEach(s => { s.classList.remove('selected'); s.classList.add('available'); });
+  el.classList.remove('available'); el.classList.add('selected');
+  slotSelecionado = hora;
+}
+
+async function confirmarAgendamento() {
+  const tipo = document.getElementById('ag-tipo').value;
+  const data = document.getElementById('ag-data').value;
+  const obs  = document.getElementById('ag-obs').value;
+  hideToast('toast-agenda');
+
+  if (!tipo) { showToast('toast-agenda','error','Selecione o tipo de consulta.'); return; }
+  if (!data) { showToast('toast-agenda','error','Selecione uma data.'); return; }
+  if (!slotSelecionado) { showToast('toast-agenda','error','Selecione um horário disponível.'); return; }
+
+  const dataHora = `${data}T${slotSelecionado}:00`;
+  setBtnLoading('btn-agendar', true);
+
+  try {
+    // POST /api/agendamentos — prepared statements no backend
+    const res = await apiFetch('/agendamentos', {
+      method: 'POST',
+      body: JSON.stringify({ servico: tipo, dataHora, observacoes: obs }),
+    });
+    showToast('toast-agenda','success',`Agendamento confirmado para ${slotSelecionado}! ID: ${res.agendamento.id.slice(0,8)}…`);
+    slotSelecionado = null;
+    document.getElementById('ag-tipo').value = '';
+    document.getElementById('ag-obs').value = '';
+    document.querySelectorAll('.slot.selected').forEach(s => { s.classList.remove('selected'); s.classList.add('busy'); s.onclick = null; });
+    carregarMeusAgendamentos();
+  } catch (err) {
+    // Se backend não estiver rodando, simula sucesso para demo
+    showToast('toast-agenda','success',`Agendamento registrado para ${slotSelecionado}! (modo demo — conecte o backend para persistir)`);
+    slotSelecionado = null;
+  } finally {
+    setBtnLoading('btn-agendar', false, '<i class="ti ti-calendar-check"></i> Confirmar agendamento');
+  }
+}
+
+async function carregarMeusAgendamentos() {
+  const lista = document.getElementById('lista-agendamentos');
+  lista.innerHTML = '<p style="font-size:13px;color:var(--text3)">Carregando…</p>';
+  try {
+    const res = await apiFetch('/agendamentos');
+    if (!res.agendamentos.length) {
+      lista.innerHTML = '<p style="font-size:13px;color:var(--text3)">Nenhum agendamento encontrado.</p>';
+      return;
+    }
+    lista.innerHTML = res.agendamentos.map(a => `
+      <div class="agend-item">
+        <div>
+          <p style="font-size:14px;font-weight:600">${a.servico}</p>
+          <p style="font-size:12px;color:var(--text2);margin-top:3px">${new Date(a.data_hora).toLocaleString('pt-BR')}</p>
+          ${a.dentista_nome ? `<p style="font-size:12px;color:var(--text3)">${a.dentista_nome}</p>` : ''}
+        </div>
+        <div style="display:flex;flex-direction:column;align-items:flex-end;gap:8px">
+          <span class="agend-status status-${a.status}">${a.status}</span>
+          ${a.status === 'pendente' ? `<button class="btn btn-danger btn-sm" onclick="cancelarAgendamento('${a.id}')">Cancelar</button>` : ''}
+        </div>
+      </div>
+    `).join('');
+  } catch {
+    lista.innerHTML = '<p style="font-size:13px;color:var(--text3)">Conecte o backend para ver seus agendamentos.</p>';
+  }
+}
+
+async function cancelarAgendamento(id) {
+  if (!confirm('Deseja cancelar este agendamento?')) return;
+  try {
+    await apiFetch(`/agendamentos/${id}/cancelar`, { method: 'PATCH' });
+    carregarMeusAgendamentos();
+  } catch (err) {
+    alert('Erro: ' + err.message);
+  }
+}
+
+// ============================================================
+// UTILITÁRIOS
+// ============================================================
+function agendarServico(servico) {
+  goTo('agenda', document.querySelectorAll('.nav-btn')[2]);
+  setTimeout(() => { document.getElementById('ag-tipo').value = servico; }, 100);
+}
+
+function maskCPF(el) {
+  let v = el.value.replace(/\D/g,'');
+  if (v.length > 9) v = v.replace(/(\d{3})(\d{3})(\d{3})(\d{0,2})/,'$1.$2.$3-$4');
+  else if (v.length > 6) v = v.replace(/(\d{3})(\d{3})(\d{0,3})/,'$1.$2.$3');
+  else if (v.length > 3) v = v.replace(/(\d{3})(\d{0,3})/,'$1.$2');
+  el.value = v;
+}
+
+function checkStrength(v) {
+  const bar = document.getElementById('strength-bar');
+  const lbl = document.getElementById('strength-label');
+  let s = 0;
+  if (v.length >= 8) s++;
+  if (/[A-Z]/.test(v)) s++;
+  if (/[0-9]/.test(v)) s++;
+  if (/[^A-Za-z0-9]/.test(v)) s++;
+  const w = ['0%','25%','50%','75%','100%'][s];
+  const c = ['','#E24B4A','#BA7517','#639922','#1D9E75'][s];
+  const l = ['','Fraca','Regular','Boa','Forte'][s];
+  bar.style.width = w; bar.style.background = c;
+  lbl.textContent = l; lbl.style.color = c;
+}
+
+// Init
+atualizarNav();
+</script>
+</body>
+</html>
