@@ -15,12 +15,28 @@ const SERVICOS_VALIDOS = [
 ];
 
 // ============================================================
+// GET /api/agendamentos/dentistas — lista dentistas ativos (pública)
+// Usada pelo formulário de agendamento para popular o <select>
+// com os UUIDs reais, em vez de valores fixos no HTML.
+// ============================================================
+router.get('/dentistas', async (req, res) => {
+  try {
+    const { rows } = await query(
+      `SELECT id, nome, especialidade FROM dentistas WHERE ativo = TRUE ORDER BY nome`
+    );
+    res.json({ dentistas: rows });
+  } catch (err) {
+    console.error('[AGENDAMENTOS DENTISTAS]', err.message);
+    res.status(500).json({ erro: 'Erro ao buscar dentistas.' });
+  }
+});
+
+// ============================================================
 // GET /api/agendamentos — lista agendamentos do paciente logado
 // ============================================================
 router.get('/', auth, async (req, res) => {
   try {
     // RLS garante que paciente só vê os próprios dados.
-    // Definimos a variável de sessão que a policy usa.
     await query(`SELECT set_config('app.paciente_id', $1, true)`, [req.paciente.id]);
 
     const { rows } = await query(
@@ -47,7 +63,6 @@ router.get('/', auth, async (req, res) => {
 router.post('/', auth, async (req, res) => {
   const { servico, dentistaId, dataHora, observacoes } = req.body;
 
-  // Validação de whitelist — rejeita qualquer serviço não cadastrado
   if (!SERVICOS_VALIDOS.includes(servico)) {
     return res.status(400).json({ erro: 'Serviço inválido.' });
   }
@@ -56,10 +71,25 @@ router.post('/', auth, async (req, res) => {
     return res.status(400).json({ erro: 'Data e horário são obrigatórios.' });
   }
 
-  // Verifica que a data é no futuro
   const dataAgend = new Date(dataHora);
   if (dataAgend <= new Date()) {
     return res.status(400).json({ erro: 'A data deve ser no futuro.' });
+  }
+
+  // Validação extra: se um dentistaId foi enviado, confirma que é um
+  // UUID válido e que existe de fato — evita erro de tipo no Postgres
+  // e evita salvar um dentista inexistente.
+  let dentistaIdValido = null;
+  if (dentistaId) {
+    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    if (!uuidRegex.test(dentistaId)) {
+      return res.status(400).json({ erro: 'Dentista inválido.' });
+    }
+    const { rows: existe } = await query('SELECT id FROM dentistas WHERE id = $1 AND ativo = TRUE', [dentistaId]);
+    if (!existe.length) {
+      return res.status(400).json({ erro: 'Dentista não encontrado.' });
+    }
+    dentistaIdValido = dentistaId;
   }
 
   try {
@@ -70,7 +100,7 @@ router.post('/', auth, async (req, res) => {
        RETURNING id, servico, data_hora, status`,
       [
         req.paciente.id,
-        dentistaId || null,
+        dentistaIdValido,
         servico,
         dataAgend.toISOString(),
         observacoes ? observacoes.substring(0, 500) : null,
@@ -94,7 +124,6 @@ router.patch('/:id/cancelar', auth, async (req, res) => {
   const { id } = req.params;
 
   try {
-    // Garantia dupla: WHERE paciente_id = $2 além do RLS
     const { rows } = await query(
       `UPDATE agendamentos
        SET status = 'cancelado', atualizado_em = NOW()
@@ -123,7 +152,6 @@ router.get('/horarios', async (req, res) => {
   if (!data) return res.status(400).json({ erro: 'Data obrigatória.' });
 
   try {
-    // Horários já agendados no dia
     const { rows: ocupados } = await query(
       `SELECT data_hora FROM agendamentos
        WHERE DATE(data_hora) = $1::date

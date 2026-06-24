@@ -228,7 +228,7 @@
       </div>
     </div>
     <div class="hero-media">
-      <img src="https://images.unsplash.com/photo-1704455306251-b4634215d98f?fm=jpg&q=80&w=900&auto=format&fit=crop" alt="Consultório odontológico moderno e iluminado" loading="eager" />
+      <img src="https://source.unsplash.com/featured/900x675/?dental,clinic,interior" alt="Consultório odontológico moderno e iluminado" loading="eager" onerror="this.onerror=null;this.src='https://images.unsplash.com/photo-1629909613654-28e377c37b09?fm=jpg&q=80&w=900&auto=format&fit=crop';" />
     </div>
   </div>
 
@@ -331,8 +331,6 @@
       <label class="form-label">Dentista</label>
       <select class="form-input" id="ag-dentista">
         <option value="">Qualquer disponível</option>
-        <option value="ana">Dra. Ana Silva</option>
-        <option value="carlos">Dr. Carlos Ramos</option>
       </select>
     </div>
     <div class="form-group">
@@ -642,9 +640,29 @@ function initAgenda() {
     carregarMeusAgendamentos();
   }
 
+  carregarDentistas();
+
   // data mínima = hoje
   const d = new Date().toISOString().split('T')[0];
   document.getElementById('ag-data').min = d;
+}
+
+async function carregarDentistas() {
+  const select = document.getElementById('ag-dentista');
+  try {
+    const res = await apiFetch('/agendamentos/dentistas');
+    // Mantém a opção "Qualquer disponível" e adiciona os dentistas reais
+    select.innerHTML = '<option value="">Qualquer disponível</option>';
+    res.dentistas.forEach(d => {
+      const opt = document.createElement('option');
+      opt.value = d.id; // UUID real do banco
+      opt.textContent = d.nome + (d.especialidade ? ` — ${d.especialidade}` : '');
+      select.appendChild(opt);
+    });
+  } catch {
+    // Se a API falhar, mantém só a opção genérica — não trava o formulário
+    select.innerHTML = '<option value="">Qualquer disponível</option>';
+  }
 }
 
 async function carregarHorarios() {
@@ -692,6 +710,8 @@ async function confirmarAgendamento() {
   const tipo = document.getElementById('ag-tipo').value;
   const data = document.getElementById('ag-data').value;
   const obs  = document.getElementById('ag-obs').value;
+  const dentistaSelect = document.getElementById('ag-dentista');
+  const dentistaId = dentistaSelect ? dentistaSelect.value : '';
   hideToast('toast-agenda');
 
   if (!tipo) { showToast('toast-agenda','error','Selecione o tipo de consulta.'); return; }
@@ -705,7 +725,7 @@ async function confirmarAgendamento() {
     // POST /api/agendamentos — prepared statements no backend
     const res = await apiFetch('/agendamentos', {
       method: 'POST',
-      body: JSON.stringify({ servico: tipo, dataHora, observacoes: obs }),
+      body: JSON.stringify({ servico: tipo, dataHora, dentistaId: dentistaId || null, observacoes: obs }),
     });
     showToast('toast-agenda','success',`Agendamento confirmado para ${slotSelecionado}! ID: ${res.agendamento.id.slice(0,8)}…`);
     slotSelecionado = null;
