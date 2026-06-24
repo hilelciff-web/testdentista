@@ -9,9 +9,13 @@ const pool = new Pool({
   user:     process.env.DB_USER,
   password: process.env.DB_PASSWORD,
 
-  // SSL obrigatório em produção
+  // SSL obrigatório em produção. O Railway usa certificado autoassinado
+  // mesmo na rede interna/privada — por isso rejectUnauthorized precisa
+  // ser false aqui. A conexão ainda é criptografada (TLS), só não valida
+  // a cadeia de certificado contra uma CA pública. Isso é uma prática
+  // aceita para conexões dentro da rede privada do próprio provedor.
   ssl: process.env.NODE_ENV === 'production'
-    ? { rejectUnauthorized: true }  // valida certificado do servidor
+    ? { rejectUnauthorized: false }
     : false,
 
   // Limites do pool
