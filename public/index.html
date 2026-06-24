@@ -145,12 +145,12 @@
 <nav>
   <div class="logo"><i class="ti ti-tooth"></i> Sorriso Saudável</div>
   <div class="nav-links">
-    <button class="nav-btn active" onclick="goTo('home', this)">Início</button>
-    <button class="nav-btn" onclick="goTo('servicos', this)">Serviços</button>
-    <button class="nav-btn" onclick="goTo('agenda', this)">Agendar</button>
-    <button class="nav-btn" id="nav-conta" onclick="goTo('conta', this)">Minha conta</button>
+    <button class="nav-btn active" id="nav-home">Início</button>
+    <button class="nav-btn" id="nav-servicos">Serviços</button>
+    <button class="nav-btn" id="nav-agenda">Agendar</button>
+    <button class="nav-btn" id="nav-conta">Minha conta</button>
   </div>
-  <div id="nav-user" style="display:none" class="nav-user" onclick="logout()">
+  <div id="nav-user" style="display:none" class="nav-user">
     <i class="ti ti-user-circle"></i>
     <span id="nav-user-nome"></span>
     <i class="ti ti-logout" style="font-size:13px;color:var(--text3)"></i>
@@ -164,8 +164,8 @@
     <h1>Seu sorriso merece<br>o melhor cuidado</h1>
     <p>Atendimento personalizado, tecnologia moderna e um ambiente acolhedor para toda a família.</p>
     <div class="hero-btns">
-      <button class="btn btn-primary" onclick="goTo('agenda', document.querySelectorAll('.nav-btn')[2])"><i class="ti ti-calendar-plus"></i> Agendar consulta</button>
-      <button class="btn btn-outline" onclick="goTo('servicos', document.querySelectorAll('.nav-btn')[1])">Ver serviços</button>
+      <button class="btn btn-primary" id="btn-hero-agendar"><i class="ti ti-calendar-plus"></i> Agendar consulta</button>
+      <button class="btn btn-outline" id="btn-hero-servicos">Ver serviços</button>
     </div>
   </div>
 
@@ -200,37 +200,37 @@
 <div id="servicos" class="screen">
   <div class="sec-header"><h2>Nossos serviços</h2><p>Tratamentos completos para toda a família.</p></div>
   <div class="card-grid">
-    <div class="service-card" onclick="agendarServico('Clareamento dental')">
+    <div class="service-card" data-servico="Clareamento dental">
       <div class="service-icon"><i class="ti ti-sparkles"></i></div>
       <h3>Clareamento dental</h3>
       <p>A laser e moldeira. Resultado em até 2 sessões.</p>
       <div class="service-price">A partir de R$ 350</div>
     </div>
-    <div class="service-card" onclick="agendarServico('Ortodontia — avaliação')">
+    <div class="service-card" data-servico="Ortodontia — avaliação">
       <div class="service-icon"><i class="ti ti-refresh"></i></div>
       <h3>Ortodontia</h3>
       <p>Aparelho metálico, estético e Invisalign.</p>
       <div class="service-price">A partir de R$ 2.800</div>
     </div>
-    <div class="service-card" onclick="agendarServico('Limpeza e prevenção')">
+    <div class="service-card" data-servico="Limpeza e prevenção">
       <div class="service-icon"><i class="ti ti-heart"></i></div>
       <h3>Limpeza e prevenção</h3>
       <p>Profilaxia, flúor e orientação de higiene.</p>
       <div class="service-price">A partir de R$ 120</div>
     </div>
-    <div class="service-card" onclick="agendarServico('Implante dental')">
+    <div class="service-card" data-servico="Implante dental">
       <div class="service-icon"><i class="ti ti-plus"></i></div>
       <h3>Implante dental</h3>
       <p>Titânio com osseointegração. Resultado permanente.</p>
       <div class="service-price">A partir de R$ 2.200</div>
     </div>
-    <div class="service-card" onclick="agendarServico('Facetas de porcelana')">
+    <div class="service-card" data-servico="Facetas de porcelana">
       <div class="service-icon"><i class="ti ti-star"></i></div>
       <h3>Facetas de porcelana</h3>
       <p>Lentes de contato dental para sorriso natural.</p>
       <div class="service-price">A partir de R$ 800/dente</div>
     </div>
-    <div class="service-card" onclick="agendarServico('Odontopediatria')">
+    <div class="service-card" data-servico="Odontopediatria">
       <div class="service-icon"><i class="ti ti-user"></i></div>
       <h3>Odontopediatria</h3>
       <p>Especializado para crianças em ambiente lúdico.</p>
@@ -252,7 +252,7 @@
     <i class="ti ti-lock" style="font-size:32px;color:var(--green);display:block;margin-bottom:10px"></i>
     <p style="font-size:14px;font-weight:600;margin-bottom:6px">Entre na sua conta para agendar</p>
     <p style="font-size:13px;color:var(--text2);margin-bottom:16px">Seus agendamentos ficam salvos com segurança no banco.</p>
-    <button class="btn btn-primary" onclick="goTo('conta', document.getElementById('nav-conta'))">Entrar ou criar conta</button>
+    <button class="btn btn-primary" id="btn-ir-conta">Entrar ou criar conta</button>
   </div>
 
   <div id="agenda-form">
@@ -278,7 +278,7 @@
     </div>
     <div class="form-group">
       <label class="form-label">Data</label>
-      <input class="form-input" type="date" id="ag-data" onchange="carregarHorarios()" />
+      <input class="form-input" type="date" id="ag-data" />
     </div>
     <div class="form-group">
       <label class="form-label">Horário</label>
@@ -290,7 +290,7 @@
       <label class="form-label">Observações (opcional)</label>
       <input class="form-input" type="text" id="ag-obs" placeholder="Ex: primeira consulta, tenho ansiedade…" maxlength="300" />
     </div>
-    <button class="btn btn-primary" id="btn-agendar" onclick="confirmarAgendamento()" style="width:100%">
+    <button class="btn btn-primary" id="btn-agendar" style="width:100%">
       <i class="ti ti-calendar-check"></i> Confirmar agendamento
     </button>
   </div>
@@ -314,16 +314,16 @@
       <i class="ti ti-circle-check" style="font-size:40px;color:var(--green);display:block;margin-bottom:10px"></i>
       <p style="font-size:14px;font-weight:600;margin-bottom:4px">Sessão ativa com segurança</p>
       <p style="font-size:12px;color:var(--text2);margin-bottom:16px">JWT assinado · bcrypt · TLS · PostgreSQL RLS</p>
-      <button class="btn btn-outline" onclick="goTo('agenda', document.querySelectorAll('.nav-btn')[2])"><i class="ti ti-calendar-plus"></i> Novo agendamento</button>
-      <button class="btn btn-danger btn-sm" onclick="logout()" style="margin-left:8px"><i class="ti ti-logout"></i> Sair</button>
+      <button class="btn btn-outline" id="btn-novo-agend"><i class="ti ti-calendar-plus"></i> Novo agendamento</button>
+      <button class="btn btn-danger btn-sm" id="btn-logout-painel" style="margin-left:8px"><i class="ti ti-logout"></i> Sair</button>
     </div>
   </div>
 
   <!-- Formulários de auth -->
   <div id="auth-forms">
     <div class="tabs">
-      <button class="tab active" onclick="switchTab('login', this)">Entrar</button>
-      <button class="tab" onclick="switchTab('cadastro', this)">Criar conta</button>
+      <button class="tab active" data-tab="login">Entrar</button>
+      <button class="tab" data-tab="cadastro">Criar conta</button>
     </div>
 
     <div id="toast-conta" class="toast hidden"></div>
@@ -339,7 +339,7 @@
         <label class="form-label">Senha</label>
         <input class="form-input" id="l-senha" type="password" placeholder="Sua senha" />
       </div>
-      <button class="btn btn-primary" id="btn-login" onclick="fazerLogin()" style="width:100%;margin-bottom:10px">
+      <button class="btn btn-primary" id="btn-login" style="width:100%;margin-bottom:10px">
         <i class="ti ti-login"></i> Entrar na minha conta
       </button>
       <p style="font-size:12px;color:var(--text3);text-align:center"><i class="ti ti-lock" style="font-size:12px"></i> Senha verificada com bcrypt — nunca armazenada em texto plano</p>
@@ -365,7 +365,7 @@
       <div class="form-row">
         <div class="form-group">
           <label class="form-label">CPF</label>
-          <input class="form-input" id="c-cpf" type="text" placeholder="000.000.000-00" maxlength="14" oninput="maskCPF(this)" />
+          <input class="form-input" id="c-cpf" type="text" placeholder="000.000.000-00" maxlength="14" />
         </div>
         <div class="form-group">
           <label class="form-label">Data de nascimento</label>
@@ -378,7 +378,7 @@
       </div>
       <div class="form-group">
         <label class="form-label">Senha</label>
-        <input class="form-input" id="c-senha" type="password" placeholder="Mínimo 8 caracteres" oninput="checkStrength(this.value)" />
+        <input class="form-input" id="c-senha" type="password" placeholder="Mínimo 8 caracteres" />
         <div class="strength-bar-wrap"><div id="strength-bar" class="strength-bar"></div></div>
         <span id="strength-label" style="font-size:11px;color:var(--text3)"></span>
       </div>
@@ -386,7 +386,7 @@
         <label class="form-label">Confirmar senha</label>
         <input class="form-input" id="c-conf" type="password" placeholder="Repita a senha" />
       </div>
-      <button class="btn btn-primary" id="btn-cadastro" onclick="cadastrar()" style="width:100%;margin-bottom:10px">
+      <button class="btn btn-primary" id="btn-cadastro" style="width:100%;margin-bottom:10px">
         <i class="ti ti-user-plus"></i> Criar minha conta
       </button>
       <p style="font-size:12px;color:var(--text3);text-align:center"><i class="ti ti-lock" style="font-size:12px"></i> CPF criptografado · prepared statements · auditoria ativa</p>
@@ -676,10 +676,14 @@ async function carregarMeusAgendamentos() {
         </div>
         <div style="display:flex;flex-direction:column;align-items:flex-end;gap:8px">
           <span class="agend-status status-${a.status}">${a.status}</span>
-          ${a.status === 'pendente' ? `<button class="btn btn-danger btn-sm" onclick="cancelarAgendamento('${a.id}')">Cancelar</button>` : ''}
+          ${a.status === 'pendente' ? `<button class="btn btn-danger btn-sm btn-cancelar" data-id="${a.id}">Cancelar</button>` : ''}
         </div>
       </div>
     `).join('');
+    // Delegated listener for cancel buttons
+    lista.querySelectorAll('.btn-cancelar').forEach(btn => {
+      btn.addEventListener('click', () => cancelarAgendamento(btn.dataset.id));
+    });
   } catch {
     lista.innerHTML = '<p style="font-size:13px;color:var(--text3)">Conecte o backend para ver seus agendamentos.</p>';
   }
@@ -725,6 +729,52 @@ function checkStrength(v) {
   bar.style.width = w; bar.style.background = c;
   lbl.textContent = l; lbl.style.color = c;
 }
+
+// ============================================================
+// EVENT LISTENERS — substitui todos os onclick inline
+// ============================================================
+document.addEventListener('DOMContentLoaded', () => {
+  // Nav buttons
+  document.getElementById('nav-home').addEventListener('click', function() { goTo('home', this); });
+  document.getElementById('nav-servicos').addEventListener('click', function() { goTo('servicos', this); });
+  document.getElementById('nav-agenda').addEventListener('click', function() { goTo('agenda', this); });
+  document.getElementById('nav-conta').addEventListener('click', function() { goTo('conta', this); });
+  document.getElementById('nav-user').addEventListener('click', logout);
+
+  // Hero buttons
+  document.getElementById('btn-hero-agendar').addEventListener('click', () => goTo('agenda', document.getElementById('nav-agenda')));
+  document.getElementById('btn-hero-servicos').addEventListener('click', () => goTo('servicos', document.getElementById('nav-servicos')));
+
+  // Service cards
+  document.querySelectorAll('.service-card[data-servico]').forEach(card => {
+    card.addEventListener('click', () => agendarServico(card.dataset.servico));
+  });
+
+  // Agenda
+  document.getElementById('btn-ir-conta').addEventListener('click', () => goTo('conta', document.getElementById('nav-conta')));
+  document.getElementById('ag-data').addEventListener('change', carregarHorarios);
+  document.getElementById('btn-agendar').addEventListener('click', confirmarAgendamento);
+  document.getElementById('btn-agendar').innerHTML = '<i class="ti ti-calendar-check"></i> Confirmar agendamento';
+
+  // Painel paciente
+  document.getElementById('btn-novo-agend').addEventListener('click', () => goTo('agenda', document.getElementById('nav-agenda')));
+  document.getElementById('btn-logout-painel').addEventListener('click', logout);
+
+  // Auth tabs
+  document.querySelectorAll('.tab[data-tab]').forEach(tab => {
+    tab.addEventListener('click', function() { switchTab(this.dataset.tab, this); });
+  });
+
+  // Auth buttons
+  document.getElementById('btn-login').innerHTML = '<i class="ti ti-login"></i> Entrar na minha conta';
+  document.getElementById('btn-login').addEventListener('click', fazerLogin);
+  document.getElementById('btn-cadastro').innerHTML = '<i class="ti ti-user-plus"></i> Criar minha conta';
+  document.getElementById('btn-cadastro').addEventListener('click', cadastrar);
+
+  // CPF mask e strength
+  document.getElementById('c-cpf').addEventListener('input', function() { maskCPF(this); });
+  document.getElementById('c-senha').addEventListener('input', function() { checkStrength(this.value); });
+});
 
 // Init
 atualizarNav();

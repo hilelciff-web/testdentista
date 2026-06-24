@@ -21,7 +21,7 @@ router.get('/', auth, async (req, res) => {
   try {
     // RLS garante que paciente só vê os próprios dados.
     // Definimos a variável de sessão que a policy usa.
-    await query(`SET LOCAL app.paciente_id = '${req.paciente.id}'`);
+    await query(`SELECT set_config('app.paciente_id', $1, true)`, [req.paciente.id]);
 
     const { rows } = await query(
       `SELECT

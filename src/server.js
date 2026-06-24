@@ -7,9 +7,13 @@ const path       = require('path');
 
 const authRoutes        = require('./routes/auth');
 const agendamentosRoutes = require('./routes/agendamentos');
+const adminRoutes        = require('./routes/admin');
+const adminAuthRoutes    = require('./routes/adminAuth');
 
 const app  = express();
 const PORT = process.env.PORT || 3000;
+
+app.set('trust proxy', 1); // necessário no Railway para capturar IP real do cliente (rate limit e auditoria)
 
 // ============================================================
 // 1. SEGURANÇA DE HEADERS — helmet
@@ -18,10 +22,11 @@ const PORT = process.env.PORT || 3000;
 app.use(helmet({
   contentSecurityPolicy: {
     directives: {
-      defaultSrc: ["'self'"],
-      scriptSrc:  ["'self'"],
-      styleSrc:   ["'self'", "'unsafe-inline'"],
-      imgSrc:     ["'self'", 'data:'],
+     defaultSrc: ["'self'"],
+scriptSrc:  ["'self'", "'unsafe-inline'", "https://cdn.jsdelivr.net"],
+styleSrc:   ["'self'", "'unsafe-inline'", "https://cdn.jsdelivr.net"],
+fontSrc:    ["'self'", "https://cdn.jsdelivr.net"],
+imgSrc:     ["'self'", 'data:'],
     },
   },
   hsts: {
@@ -36,7 +41,7 @@ app.use(helmet({
 // ============================================================
 const origens = process.env.NODE_ENV === 'production'
   ? ['https://seudominio.com.br']
-  : ['http://localhost:3000', 'http://127.0.0.1:3000'];
+  : ['http://localhost:3000', 'http://127.0.0.1:3000', 'http://localhost:3001', 'http://127.0.0.1:3001'];
 
 app.use(cors({
   origin: origens,
@@ -49,16 +54,6 @@ app.use(cors({
 // 3. RATE LIMITING — limite de requisições por IP
 // ============================================================
 
-// Geral: 100 req / 15 min por IP
-app.use(rateLimit({
-  windowMs: 15 * 60 * 1000,
-  max: 100,
-  message: { erro: 'Muitas requisições. Tente novamente em 15 minutos.' },
-  standardHeaders: true,
-  legacyHeaders: false,
-}));
-
-// Rotas de autenticação: mais restritivo — 10 tentativas / 15 min
 const authLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   max: 10,
@@ -66,6 +61,12 @@ const authLimiter = rateLimit({
 });
 app.use('/api/auth', authLimiter);
 
+const adminLoginLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 5,
+  message: { erro: 'Muitas tentativas de login admin. Aguarde 15 minutos.' },
+});
+app.use('/api/admin/login', adminLoginLimiter);
 // ============================================================
 // 4. BODY PARSER com limite de tamanho
 // ============================================================
@@ -77,6 +78,8 @@ app.use(express.urlencoded({ extended: false, limit: '10kb' }));
 // ============================================================
 app.use('/api/auth',         authRoutes);
 app.use('/api/agendamentos', agendamentosRoutes);
+app.use('/api/admin',      adminAuthRoutes);  // login do admin (rota pública)
+app.use('/api/admin',      adminRoutes);      // rotas protegidas (precisam de token)
 
 // Serve o frontend estático
 app.use(express.static(path.join(__dirname, '../public')));

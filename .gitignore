@@ -1,0 +1,15 @@
+# Nunca versionar variáveis de ambiente e segredos
+.env
+.env.local
+.env.*.local
+
+# Dependências (reconstruídas com npm install)
+node_modules/
+
+# Logs
+npm-debug.log*
+*.log
+
+# Arquivos de sistema
+.DS_Store
+Thumbs.db
