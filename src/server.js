@@ -40,7 +40,7 @@ imgSrc:     ["'self'", 'data:'],
 // 2. CORS — só permite origens autorizadas
 // ============================================================
 const origens = process.env.NODE_ENV === 'production'
-  ? ['https://seudominio.com.br']
+  ? ['https://testdentista-production.up.railway.app']
   : ['http://localhost:3000', 'http://127.0.0.1:3000', 'http://localhost:3001', 'http://127.0.0.1:3001'];
 
 app.use(cors({
