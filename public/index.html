@@ -29,28 +29,68 @@
     body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: var(--bg2); color: var(--text); min-height: 100vh; }
 
     /* NAV */
-    nav { position: sticky; top: 0; z-index: 100; background: var(--bg); border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; padding: 0 24px; height: 56px; }
+    nav { position: sticky; top: 0; z-index: 100; background: var(--bg); border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; padding: 0 5vw; height: 56px; }
     .logo { display: flex; align-items: center; gap: 8px; font-weight: 600; color: var(--green-dark); font-size: 15px; }
     .logo i { font-size: 20px; color: var(--green); }
     .nav-links { display: flex; gap: 2px; }
     .nav-btn { padding: 6px 12px; font-size: 13px; border: none; background: transparent; color: var(--text2); cursor: pointer; border-radius: 8px; font-family: inherit; transition: all .15s; }
+
+    /* NAV MOBILE: esconde os links de texto no topo, mostra barra inferior fixa */
+    .nav-links { display: none; }
+    .bottom-nav { position: fixed; bottom: 0; left: 0; right: 0; z-index: 100; background: var(--bg); border-top: 1px solid var(--border); display: flex; padding: 4px 4px calc(4px + env(safe-area-inset-bottom)); box-shadow: 0 -2px 12px rgba(0,0,0,0.05); }
+    .bnav-btn { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 8px 4px; min-height: 52px; background: transparent; border: none; color: var(--text3); font-family: inherit; cursor: pointer; border-radius: 8px; }
+    .bnav-btn i { font-size: 20px; }
+    .bnav-btn span { font-size: 10.5px; font-weight: 500; }
+    .bnav-btn.active { color: var(--green); }
+    body { padding-bottom: 64px; }
+
+    @media (min-width: 768px) {
+      .nav-links { display: flex; gap: 2px; }
+      .bottom-nav { display: none; }
+      body { padding-bottom: 0; }
+    }
     .nav-btn:hover { background: var(--green-light); color: var(--green-dark); }
     .nav-btn.active { background: var(--green-light); color: var(--green); font-weight: 500; }
     .nav-user { font-size: 13px; color: var(--green); font-weight: 500; display: flex; align-items: center; gap: 6px; cursor: pointer; }
 
     /* SCREENS */
-    .screen { display: none; max-width: 720px; margin: 0 auto; padding: 28px 20px; }
+    .screen { display: none; max-width: 1400px; margin: 0 auto; padding: 28px 5vw; width: 100%; }
     .screen.active { display: block; }
 
     /* HERO */
-    .hero { background: linear-gradient(135deg, var(--green-light) 0%, #C8EFE0 100%); border-radius: var(--radius); padding: 36px 28px; margin-bottom: 20px; }
-    .hero-tag { font-size: 11px; font-weight: 600; color: var(--green); letter-spacing: .06em; text-transform: uppercase; margin-bottom: 10px; }
-    .hero h1 { font-size: 26px; font-weight: 600; color: var(--green-dark); line-height: 1.3; margin-bottom: 10px; }
+    .hero { background: linear-gradient(135deg, var(--green-light) 0%, #C8EFE0 100%); border-radius: var(--radius); padding: 28px; margin-bottom: 20px; display: grid; grid-template-columns: 1fr; gap: 24px; }
+    .hero-tag { font-size: 11px; font-weight: 600; color: var(--green); letter-spacing: .06em; text-transform: uppercase; margin-bottom: 10px; display: flex; align-items: center; gap: 6px; }
+    .hero h1 { font-size: 28px; font-weight: 700; color: var(--green-dark); line-height: 1.2; margin-bottom: 12px; letter-spacing: -0.01em; }
     .hero p { font-size: 14px; color: var(--green-mid); line-height: 1.7; margin-bottom: 22px; max-width: 420px; }
-    .hero-btns { display: flex; gap: 10px; flex-wrap: wrap; }
+    .hero-btns { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 22px; }
+    .hero-stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0; border-top: 1px solid var(--green-border); padding-top: 16px; }
+    .hero-stat { padding: 0 12px; border-right: 1px solid var(--green-border); }
+    .hero-stat:first-child { padding-left: 0; }
+    .hero-stat:last-child { border-right: none; }
+    .hero-stat-n { font-size: 22px; font-weight: 700; color: var(--green-dark); letter-spacing: -0.02em; line-height: 1; }
+    .hero-stat-l { font-size: 11px; color: var(--green-mid); margin-top: 4px; line-height: 1.3; }
+    @media (max-width: 380px) {
+      .hero-stat { padding: 0 6px; }
+      .hero-stat-n { font-size: 18px; }
+      .hero-stat-l { font-size: 9.5px; }
+    }
+    .hero-media { border-radius: calc(var(--radius) + 4px); overflow: hidden; aspect-ratio: 4/3; }
+    .hero-media img { width: 100%; height: 100%; object-fit: cover; display: block; }
+    @media (min-width: 640px) {
+      .hero { grid-template-columns: 1fr 1fr; align-items: center; padding: 32px; }
+      .hero-media { order: 2; }
+    }
+    @media (min-width: 1024px) {
+      .hero { grid-template-columns: 1fr 0.85fr; padding: 48px; gap: 48px; }
+      .hero h1 { font-size: 34px; }
+      .hero-media { aspect-ratio: 5/4; }
+    }
 
     /* BUTTONS */
-    .btn { padding: 9px 18px; font-size: 13px; font-weight: 500; border-radius: 8px; cursor: pointer; font-family: inherit; transition: all .15s; display: inline-flex; align-items: center; gap: 6px; }
+    .btn { padding: 9px 18px; font-size: 13px; font-weight: 500; border-radius: 8px; cursor: pointer; font-family: inherit; transition: all .15s; display: inline-flex; align-items: center; gap: 6px; min-height: 44px; }
+    @media (min-width: 768px) {
+      .btn { min-height: auto; }
+    }
     .btn-primary { background: var(--green); color: #fff; border: none; }
     .btn-primary:hover { background: var(--green-dark); }
     .btn-primary:disabled { opacity: .6; cursor: not-allowed; }
@@ -78,6 +118,11 @@
 
     /* TEAM */
     .doctor-card { display: flex; align-items: center; gap: 14px; background: var(--bg); border: 1px solid var(--border); border-radius: var(--radius); padding: 16px; margin-bottom: 10px; }
+    .team-grid { display: grid; grid-template-columns: 1fr; gap: 0; }
+    @media (min-width: 768px) {
+      .team-grid { grid-template-columns: repeat(2, 1fr); gap: 12px; }
+      .team-grid .doctor-card { margin-bottom: 0; }
+    }
     .avatar { width: 48px; height: 48px; border-radius: 50%; background: var(--green-light); display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 16px; color: var(--green); flex-shrink: 0; }
     .doc-info h3 { font-size: 14px; font-weight: 600; }
     .doc-info p { font-size: 12px; color: var(--text2); margin-top: 2px; }
@@ -157,25 +202,38 @@
   </div>
 </nav>
 
+<!-- Navegação inferior fixa, visível só em mobile -->
+<div class="bottom-nav">
+  <button class="bnav-btn active" id="bnav-home"><i class="ti ti-home"></i><span>Início</span></button>
+  <button class="bnav-btn" id="bnav-servicos"><i class="ti ti-tooth"></i><span>Serviços</span></button>
+  <button class="bnav-btn" id="bnav-agenda"><i class="ti ti-calendar-plus"></i><span>Agendar</span></button>
+  <button class="bnav-btn" id="bnav-conta"><i class="ti ti-user-circle"></i><span>Conta</span></button>
+</div>
+
 <!-- HOME -->
 <div id="home" class="screen active">
   <div class="hero">
-    <div class="hero-tag"><i class="ti ti-shield-check" style="font-size:11px"></i> Clínica certificada · Dados protegidos</div>
-    <h1>Seu sorriso merece<br>o melhor cuidado</h1>
-    <p>Atendimento personalizado, tecnologia moderna e um ambiente acolhedor para toda a família.</p>
-    <div class="hero-btns">
-      <button class="btn btn-primary" id="btn-hero-agendar"><i class="ti ti-calendar-plus"></i> Agendar consulta</button>
-      <button class="btn btn-outline" id="btn-hero-servicos">Ver serviços</button>
+    <div>
+      <div class="hero-tag"><i class="ti ti-shield-check" style="font-size:11px"></i> Clínica certificada · Dados protegidos</div>
+      <h1>Seu sorriso merece<br>o melhor cuidado</h1>
+      <p>Atendimento personalizado, tecnologia moderna e um ambiente acolhedor para toda a família.</p>
+      <div class="hero-btns">
+        <button class="btn btn-primary" id="btn-hero-agendar"><i class="ti ti-calendar-plus"></i> Agendar consulta</button>
+        <button class="btn btn-outline" id="btn-hero-servicos">Ver serviços</button>
+      </div>
+      <div class="hero-stats">
+        <div class="hero-stat"><div class="hero-stat-n" data-count="12" data-suffix="+">0</div><div class="hero-stat-l">Anos de experiência</div></div>
+        <div class="hero-stat"><div class="hero-stat-n" data-count="3400" data-suffix="">0</div><div class="hero-stat-l">Pacientes atendidos</div></div>
+        <div class="hero-stat"><div class="hero-stat-n" data-count="98" data-suffix="%">0</div><div class="hero-stat-l">Satisfação</div></div>
+      </div>
+    </div>
+    <div class="hero-media">
+      <img src="https://images.unsplash.com/photo-1704455306251-b4634215d98f?fm=jpg&q=80&w=900&auto=format&fit=crop" alt="Consultório odontológico moderno e iluminado" loading="eager" />
     </div>
   </div>
 
-  <div class="stats">
-    <div class="stat"><div class="stat-n">12+</div><div class="stat-l">Anos de experiência</div></div>
-    <div class="stat"><div class="stat-n">3.400</div><div class="stat-l">Pacientes atendidos</div></div>
-    <div class="stat"><div class="stat-n">98%</div><div class="stat-l">Satisfação</div></div>
-  </div>
-
   <div class="sec-header"><h2>Nossa equipe</h2><p>Especialistas prontos para te atender.</p></div>
+  <div class="team-grid">
   <div class="doctor-card">
     <div class="avatar">AS</div>
     <div class="doc-info">
@@ -191,6 +249,7 @@
       <p>Implantodontia e Cirurgia · CRO 54.321</p>
       <span class="badge">Implantes · Extrações</span>
     </div>
+  </div>
   </div>
 
   <footer><i class="ti ti-lock"></i> Dados protegidos com PostgreSQL + TLS + bcrypt</footer>
@@ -409,8 +468,13 @@ let slotSelecionado = null;
 function goTo(id, btn) {
   document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
   document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+  document.querySelectorAll('.bnav-btn').forEach(b => b.classList.remove('active'));
   document.getElementById(id).classList.add('active');
   if (btn) btn.classList.add('active');
+
+  // Sincroniza o botão correspondente na barra inferior (mobile)
+  const bnavId = { home: 'bnav-home', servicos: 'bnav-servicos', agenda: 'bnav-agenda', conta: 'bnav-conta' }[id];
+  if (bnavId) document.getElementById(bnavId).classList.add('active');
 
   if (id === 'agenda') initAgenda();
   if (id === 'conta') initConta();
@@ -739,6 +803,11 @@ document.addEventListener('DOMContentLoaded', () => {
   document.getElementById('nav-servicos').addEventListener('click', function() { goTo('servicos', this); });
   document.getElementById('nav-agenda').addEventListener('click', function() { goTo('agenda', this); });
   document.getElementById('nav-conta').addEventListener('click', function() { goTo('conta', this); });
+
+  document.getElementById('bnav-home').addEventListener('click', function() { goTo('home', this); });
+  document.getElementById('bnav-servicos').addEventListener('click', function() { goTo('servicos', this); });
+  document.getElementById('bnav-agenda').addEventListener('click', function() { goTo('agenda', this); });
+  document.getElementById('bnav-conta').addEventListener('click', function() { goTo('conta', this); });
   document.getElementById('nav-user').addEventListener('click', logout);
 
   // Hero buttons
@@ -776,8 +845,26 @@ document.addEventListener('DOMContentLoaded', () => {
   document.getElementById('c-senha').addEventListener('input', function() { checkStrength(this.value); });
 });
 
+// Animação de contagem dos números do hero (efeito sutil, dispara uma vez ao carregar)
+function animarContadores() {
+  document.querySelectorAll('.hero-stat-n[data-count]').forEach(el => {
+    const alvo = parseInt(el.dataset.count, 10);
+    const sufixo = el.dataset.suffix || '';
+    const duracao = 900;
+    const inicio = performance.now();
+    function passo(agora) {
+      const progresso = Math.min((agora - inicio) / duracao, 1);
+      const valor = Math.round(alvo * progresso);
+      el.textContent = valor.toLocaleString('pt-BR') + sufixo;
+      if (progresso < 1) requestAnimationFrame(passo);
+    }
+    requestAnimationFrame(passo);
+  });
+}
+
 // Init
 atualizarNav();
+animarContadores();
 </script>
 </body>
 </html>
