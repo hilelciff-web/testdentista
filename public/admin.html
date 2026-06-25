@@ -150,7 +150,92 @@
     <div id="screen-agendamentos" class="screen">
       <div class="sec-header">
         <h2>Todos os agendamentos</h2>
+        <button class="btn btn-primary" id="btn-novo-agendamento"><i class="ti ti-plus"></i> Novo agendamento</button>
       </div>
+
+      <div id="form-agendamento" class="card" style="display:none">
+        <h3 style="font-size:14px;margin-bottom:14px">Novo agendamento</h3>
+        <div id="toast-agendamento" class="toast"></div>
+
+        <div class="form-group">
+          <label class="form-label">Paciente</label>
+          <input class="form-input" id="ag-paciente-busca" placeholder="Digite o nome ou email para buscar…" autocomplete="off" />
+          <div id="ag-paciente-resultados" style="border:1px solid var(--border);border-radius:8px;margin-top:4px;display:none;max-height:160px;overflow-y:auto"></div>
+          <div id="ag-paciente-selecionado" style="display:none;margin-top:8px;padding:8px 10px;background:var(--green-light);border-radius:8px;font-size:13px">
+            <i class="ti ti-user-check" style="color:var(--green-dark)"></i>
+            <span id="ag-paciente-nome-sel"></span>
+            <button type="button" id="ag-paciente-trocar" class="btn btn-sm btn-outline" style="float:right">Trocar</button>
+          </div>
+        </div>
+
+        <div id="ag-paciente-novo-form" style="display:none">
+          <p style="font-size:12px;color:var(--text2);margin-bottom:10px">Paciente não encontrado. Cadastre rapidamente:</p>
+          <div class="form-row">
+            <div class="form-group"><label class="form-label">Nome</label><input class="form-input" id="ag-novo-nome" placeholder="Nome" /></div>
+            <div class="form-group"><label class="form-label">Sobrenome</label><input class="form-input" id="ag-novo-sobrenome" placeholder="Sobrenome" /></div>
+          </div>
+          <div class="form-row">
+            <div class="form-group"><label class="form-label">Email</label><input class="form-input" id="ag-novo-email" type="email" placeholder="email@paciente.com" /></div>
+            <div class="form-group"><label class="form-label">Telefone</label><input class="form-input" id="ag-novo-telefone" placeholder="(00) 00000-0000" /></div>
+          </div>
+        </div>
+
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label">Serviço</label>
+            <select class="form-input" id="ag-servico">
+              <option value="">Selecione…</option>
+              <option>Clareamento dental</option>
+              <option>Ortodontia — avaliação</option>
+              <option>Limpeza e prevenção</option>
+              <option>Implante dental</option>
+              <option>Facetas de porcelana</option>
+              <option>Odontopediatria</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Dentista</label>
+            <select class="form-input" id="ag-dentista"><option value="">Sem preferência</option></select>
+          </div>
+        </div>
+
+        <div class="form-row">
+          <div class="form-group"><label class="form-label">Data</label><input class="form-input" id="ag-data" type="date" /></div>
+          <div class="form-group"><label class="form-label">Horário</label><input class="form-input" id="ag-hora" type="time" /></div>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Observações (opcional)</label>
+          <input class="form-input" id="ag-observacoes" placeholder="Alguma observação sobre a consulta…" />
+        </div>
+
+        <hr style="border:none;border-top:1px solid var(--border);margin:16px 0" />
+        <p style="font-size:12px;font-weight:600;color:var(--text2);margin-bottom:10px">Pagamento (opcional — pode deixar pendente e marcar depois)</p>
+
+        <div class="form-row">
+          <div class="form-group"><label class="form-label">Valor (R$)</label><input class="form-input" id="ag-valor" type="number" step="0.01" min="0" placeholder="0,00" /></div>
+          <div class="form-group">
+            <label class="form-label">Forma de pagamento</label>
+            <select class="form-input" id="ag-forma-pagamento">
+              <option value="">—</option>
+              <option value="dinheiro">Dinheiro</option>
+              <option value="pix">Pix</option>
+              <option value="cartao">Cartão</option>
+            </select>
+          </div>
+        </div>
+        <div class="form-group">
+          <label style="font-size:13px;display:flex;align-items:center;gap:6px;cursor:pointer">
+            <input type="checkbox" id="ag-pago" /> Já foi pago
+          </label>
+        </div>
+
+        <div style="display:flex;gap:8px">
+          <button class="btn btn-primary" id="btn-salvar-agendamento"><i class="ti ti-check"></i> Criar agendamento</button>
+          <button class="btn btn-outline" id="btn-cancelar-agendamento">Cancelar</button>
+        </div>
+      </div>
+
       <div class="filters">
         <input type="date" class="filter-input" id="filtro-data" />
         <select class="filter-input" id="filtro-status">
@@ -164,8 +249,8 @@
       </div>
       <div class="table-wrap">
         <table>
-          <thead><tr><th>Paciente</th><th>Serviço</th><th>Data/Hora</th><th>Dentista</th><th>Status</th><th>Ação</th></tr></thead>
-          <tbody id="tbody-agendamentos"><tr><td colspan="6" class="empty">Carregando…</td></tr></tbody>
+          <thead><tr><th>Paciente</th><th>Serviço</th><th>Data/Hora</th><th>Dentista</th><th>Status</th><th>Pagamento</th><th>Ação</th></tr></thead>
+          <tbody id="tbody-agendamentos"><tr><td colspan="7" class="empty">Carregando…</td></tr></tbody>
         </table>
       </div>
     </div>
@@ -317,6 +402,19 @@ function mostrarToast(id, tipo, msg) {
 
 function fmtData(d) { return new Date(d).toLocaleString('pt-BR'); }
 
+// Escapa HTML para evitar XSS ao inserir dados do paciente/dentista via innerHTML.
+// Qualquer valor que venha da API (nome, email, serviço, observações, etc.) deve
+// passar por aqui antes de entrar num template string que vira innerHTML.
+function esc(valor) {
+  if (valor === null || valor === undefined) return '';
+  return String(valor)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
 // ============================================================
 // DASHBOARD
 // ============================================================
@@ -337,10 +435,10 @@ async function carregarDashboard() {
     lista.innerHTML = `<table style="width:100%;border-collapse:collapse">
       <thead><tr><th style="padding:8px;font-size:11px;color:var(--text2);text-align:left">Paciente</th><th style="padding:8px;font-size:11px;color:var(--text2);text-align:left">Serviço</th><th style="padding:8px;font-size:11px;color:var(--text2);text-align:left">Horário</th><th style="padding:8px;font-size:11px;color:var(--text2);text-align:left">Status</th></tr></thead>
       <tbody>${agendamentos.map(a => `<tr>
-        <td style="padding:8px;font-size:13px">${a.paciente_nome}</td>
-        <td style="padding:8px;font-size:13px">${a.servico}</td>
+        <td style="padding:8px;font-size:13px">${esc(a.paciente_nome)}</td>
+        <td style="padding:8px;font-size:13px">${esc(a.servico)}</td>
         <td style="padding:8px;font-size:13px">${fmtData(a.data_hora)}</td>
-        <td style="padding:8px"><span class="badge badge-${a.status}">${a.status}</span></td>
+        <td style="padding:8px"><span class="badge badge-${esc(a.status)}">${esc(a.status)}</span></td>
       </tr>`).join('')}</tbody></table>`;
   } catch (err) { console.error(err); }
 }
@@ -358,16 +456,21 @@ async function carregarAgendamentos() {
   try {
     const { agendamentos } = await apiFetch(path);
     const tbody = document.getElementById('tbody-agendamentos');
-    if (!agendamentos.length) { tbody.innerHTML = '<tr><td colspan="6" class="empty">Nenhum agendamento encontrado.</td></tr>'; return; }
+    if (!agendamentos.length) { tbody.innerHTML = '<tr><td colspan="7" class="empty">Nenhum agendamento encontrado.</td></tr>'; return; }
     tbody.innerHTML = agendamentos.map(a => `
       <tr>
-        <td><strong>${a.paciente_nome}</strong><br><span style="font-size:11px;color:var(--text3)">${a.paciente_email}</span></td>
-        <td>${a.servico}</td>
+        <td><strong>${esc(a.paciente_nome)}</strong><br><span style="font-size:11px;color:var(--text3)">${esc(a.paciente_email)}</span></td>
+        <td>${esc(a.servico)}</td>
         <td>${fmtData(a.data_hora)}</td>
-        <td>${a.dentista_nome || '—'}</td>
-        <td><span class="badge badge-${a.status}">${a.status}</span></td>
+        <td>${esc(a.dentista_nome) || '—'}</td>
+        <td><span class="badge badge-${esc(a.status)}">${esc(a.status)}</span></td>
         <td>
-          <select class="select-status" data-id="${a.id}">
+          ${a.pago
+            ? `<span class="badge badge-ativo">Pago${a.valor ? ' · R$ ' + esc(Number(a.valor).toFixed(2)) : ''}</span>`
+            : `<button class="btn btn-sm btn-outline btn-marcar-pago" data-id="${esc(a.id)}" data-valor="${a.valor != null ? esc(a.valor) : ''}" data-forma="${esc(a.forma_pagamento) || ''}">Marcar pago</button>`}
+        </td>
+        <td>
+          <select class="select-status" data-id="${esc(a.id)}">
             <option value="pendente" ${a.status==='pendente'?'selected':''}>Pendente</option>
             <option value="confirmado" ${a.status==='confirmado'?'selected':''}>Confirmado</option>
             <option value="cancelado" ${a.status==='cancelado'?'selected':''}>Cancelado</option>
@@ -375,6 +478,24 @@ async function carregarAgendamentos() {
           </select>
         </td>
       </tr>`).join('');
+
+    tbody.querySelectorAll('.btn-marcar-pago').forEach(btn => {
+      btn.addEventListener('click', async () => {
+        const valorAtual = btn.dataset.valor || '';
+        const valor = prompt('Valor da consulta (R$):', valorAtual);
+        if (valor === null) return; // cancelou o prompt
+        const forma = prompt('Forma de pagamento (dinheiro, pix ou cartao):', btn.dataset.forma || 'pix');
+        if (forma === null) return;
+        if (!['dinheiro', 'pix', 'cartao'].includes(forma)) { alert('Forma de pagamento inválida. Use: dinheiro, pix ou cartao.'); return; }
+        try {
+          await apiFetch(`/agendamentos/${btn.dataset.id}/pagamento`, {
+            method: 'PATCH',
+            body: JSON.stringify({ valor: valor ? Number(valor) : null, formaPagamento: forma, pago: true }),
+          });
+          carregarAgendamentos();
+        } catch (err) { alert('Erro: ' + err.message); }
+      });
+    });
 
     tbody.querySelectorAll('.select-status').forEach(sel => {
       sel.addEventListener('change', async () => {
@@ -390,6 +511,170 @@ async function carregarAgendamentos() {
 document.getElementById('btn-filtrar').addEventListener('click', carregarAgendamentos);
 
 // ============================================================
+// NOVO AGENDAMENTO (manual, pelo admin)
+// ============================================================
+let pacienteSelecionadoId = null;
+
+function resetarFormAgendamento() {
+  pacienteSelecionadoId = null;
+  document.getElementById('ag-paciente-busca').value = '';
+  document.getElementById('ag-paciente-busca').style.display = 'block';
+  document.getElementById('ag-paciente-resultados').style.display = 'none';
+  document.getElementById('ag-paciente-resultados').innerHTML = '';
+  document.getElementById('ag-paciente-selecionado').style.display = 'none';
+  document.getElementById('ag-paciente-novo-form').style.display = 'none';
+  document.getElementById('ag-novo-nome').value = '';
+  document.getElementById('ag-novo-sobrenome').value = '';
+  document.getElementById('ag-novo-email').value = '';
+  document.getElementById('ag-novo-telefone').value = '';
+  document.getElementById('ag-servico').value = '';
+  document.getElementById('ag-dentista').value = '';
+  document.getElementById('ag-data').value = '';
+  document.getElementById('ag-hora').value = '';
+  document.getElementById('ag-observacoes').value = '';
+  document.getElementById('ag-valor').value = '';
+  document.getElementById('ag-forma-pagamento').value = '';
+  document.getElementById('ag-pago').checked = false;
+}
+
+async function popularSelectDentistas() {
+  try {
+    const { dentistas } = await apiFetch('/dentistas');
+    const sel = document.getElementById('ag-dentista');
+    sel.innerHTML = '<option value="">Sem preferência</option>' +
+      dentistas.filter(d => d.ativo).map(d => `<option value="${esc(d.id)}">${esc(d.nome)} ${esc(d.sobrenome) || ''}</option>`).join('');
+  } catch (err) { console.error(err); }
+}
+
+document.getElementById('btn-novo-agendamento').addEventListener('click', () => {
+  resetarFormAgendamento();
+  popularSelectDentistas();
+  document.getElementById('form-agendamento').style.display = 'block';
+});
+
+document.getElementById('btn-cancelar-agendamento').addEventListener('click', () => {
+  document.getElementById('form-agendamento').style.display = 'none';
+});
+
+// Busca de paciente com debounce simples
+let debounceBusca = null;
+document.getElementById('ag-paciente-busca').addEventListener('input', (e) => {
+  clearTimeout(debounceBusca);
+  const termo = e.target.value.trim();
+  const resultadosEl = document.getElementById('ag-paciente-resultados');
+  document.getElementById('ag-paciente-novo-form').style.display = 'none';
+
+  if (termo.length < 2) { resultadosEl.style.display = 'none'; return; }
+
+  debounceBusca = setTimeout(async () => {
+    try {
+      const { pacientes } = await apiFetch(`/pacientes/buscar?q=${encodeURIComponent(termo)}`);
+      if (!pacientes.length) {
+        resultadosEl.style.display = 'block';
+        resultadosEl.innerHTML = `<div style="padding:10px;font-size:13px;color:var(--text2)">
+          Nenhum paciente encontrado. <button type="button" id="ag-btn-cadastrar-novo" class="btn btn-sm btn-primary" style="margin-left:6px">Cadastrar novo</button>
+        </div>`;
+        document.getElementById('ag-btn-cadastrar-novo').addEventListener('click', () => {
+          resultadosEl.style.display = 'none';
+          document.getElementById('ag-paciente-novo-form').style.display = 'block';
+        });
+        return;
+      }
+      resultadosEl.style.display = 'block';
+      resultadosEl.innerHTML = pacientes.map(p => `
+        <div class="ag-resultado-item" data-id="${esc(p.id)}" data-nome="${esc(p.nome)} ${esc(p.sobrenome || '')}"
+             style="padding:8px 10px;font-size:13px;cursor:pointer;border-bottom:1px solid var(--border)">
+          <strong>${esc(p.nome)} ${esc(p.sobrenome || '')}</strong><br>
+          <span style="font-size:11px;color:var(--text3)">${esc(p.email)}</span>
+        </div>`).join('');
+
+      resultadosEl.querySelectorAll('.ag-resultado-item').forEach(item => {
+        item.addEventListener('click', () => {
+          pacienteSelecionadoId = item.dataset.id;
+          document.getElementById('ag-paciente-nome-sel').textContent = item.dataset.nome;
+          document.getElementById('ag-paciente-busca').style.display = 'none';
+          document.getElementById('ag-paciente-selecionado').style.display = 'block';
+          resultadosEl.style.display = 'none';
+        });
+      });
+    } catch (err) { console.error(err); }
+  }, 300);
+});
+
+document.getElementById('ag-paciente-trocar').addEventListener('click', () => {
+  pacienteSelecionadoId = null;
+  document.getElementById('ag-paciente-busca').value = '';
+  document.getElementById('ag-paciente-busca').style.display = 'block';
+  document.getElementById('ag-paciente-selecionado').style.display = 'none';
+});
+
+document.getElementById('btn-salvar-agendamento').addEventListener('click', async () => {
+  const servico = document.getElementById('ag-servico').value;
+  const dentistaId = document.getElementById('ag-dentista').value;
+  const data = document.getElementById('ag-data').value;
+  const hora = document.getElementById('ag-hora').value;
+  const observacoes = document.getElementById('ag-observacoes').value.trim();
+  const valor = document.getElementById('ag-valor').value;
+  const formaPagamento = document.getElementById('ag-forma-pagamento').value;
+  const pago = document.getElementById('ag-pago').checked;
+
+  if (!servico || !data || !hora) {
+    mostrarToast('toast-agendamento', 'error', 'Serviço, data e horário são obrigatórios.');
+    return;
+  }
+
+  try {
+    // Se o paciente ainda não foi selecionado, mas o form de cadastro
+    // rápido está visível e preenchido, cadastra primeiro.
+    if (!pacienteSelecionadoId) {
+      const novoVisivel = document.getElementById('ag-paciente-novo-form').style.display === 'block';
+      if (!novoVisivel) {
+        mostrarToast('toast-agendamento', 'error', 'Busque e selecione um paciente, ou cadastre um novo.');
+        return;
+      }
+      const nome = document.getElementById('ag-novo-nome').value.trim();
+      const email = document.getElementById('ag-novo-email').value.trim();
+      if (!nome || !email) {
+        mostrarToast('toast-agendamento', 'error', 'Nome e email do novo paciente são obrigatórios.');
+        return;
+      }
+      const { paciente } = await apiFetch('/pacientes', {
+        method: 'POST',
+        body: JSON.stringify({
+          nome,
+          sobrenome: document.getElementById('ag-novo-sobrenome').value.trim(),
+          email,
+          telefone: document.getElementById('ag-novo-telefone').value.trim(),
+        }),
+      });
+      pacienteSelecionadoId = paciente.id;
+    }
+
+    const dataHora = new Date(`${data}T${hora}:00`).toISOString();
+
+    await apiFetch('/agendamentos', {
+      method: 'POST',
+      body: JSON.stringify({
+        pacienteId: pacienteSelecionadoId,
+        dentistaId: dentistaId || null,
+        servico,
+        dataHora,
+        observacoes,
+        valor: valor ? Number(valor) : null,
+        formaPagamento: formaPagamento || null,
+        pago,
+      }),
+    });
+
+    mostrarToast('toast-agendamento', 'success', 'Agendamento criado com sucesso!');
+    document.getElementById('form-agendamento').style.display = 'none';
+    carregarAgendamentos();
+  } catch (err) {
+    mostrarToast('toast-agendamento', 'error', err.message);
+  }
+});
+
+// ============================================================
 // PACIENTES
 // ============================================================
 async function carregarPacientes() {
@@ -399,9 +684,9 @@ async function carregarPacientes() {
     if (!pacientes.length) { tbody.innerHTML = '<tr><td colspan="5" class="empty">Nenhum paciente.</td></tr>'; return; }
     tbody.innerHTML = pacientes.map(p => `
       <tr>
-        <td><strong>${p.nome} ${p.sobrenome}</strong></td>
-        <td>${p.email}</td>
-        <td>${p.telefone || '—'}</td>
+        <td><strong>${esc(p.nome)} ${esc(p.sobrenome)}</strong></td>
+        <td>${esc(p.email)}</td>
+        <td>${esc(p.telefone) || '—'}</td>
         <td>${new Date(p.criado_em).toLocaleDateString('pt-BR')}</td>
         <td><span class="badge badge-${p.ativo ? 'ativo' : 'inativo'}">${p.ativo ? 'Ativo' : 'Inativo'}</span></td>
       </tr>`).join('');
@@ -418,9 +703,9 @@ async function carregarDentistas() {
     if (!dentistas.length) { tbody.innerHTML = '<tr><td colspan="4" class="empty">Nenhum dentista.</td></tr>'; return; }
     tbody.innerHTML = dentistas.map(d => `
       <tr>
-        <td><strong>${d.nome} ${d.sobrenome || ''}</strong></td>
-        <td>${d.cro}</td>
-        <td>${d.especialidade || '—'}</td>
+        <td><strong>${esc(d.nome)} ${esc(d.sobrenome) || ''}</strong></td>
+        <td>${esc(d.cro)}</td>
+        <td>${esc(d.especialidade) || '—'}</td>
         <td><span class="badge badge-${d.ativo ? 'ativo' : 'inativo'}">${d.ativo ? 'Ativo' : 'Inativo'}</span></td>
       </tr>`).join('');
   } catch (err) { console.error(err); }
