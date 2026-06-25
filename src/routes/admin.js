@@ -8,11 +8,12 @@ const router = express.Router();
 // GET /api/admin/agendamentos — todos os agendamentos
 // ============================================================
 router.get('/agendamentos', adminAuth, async (req, res) => {
-  const { data, status } = req.query;
+  const { data, status, dataInicio, dataFim, dentistaId } = req.query;
   try {
     let sql = `
       SELECT a.id, a.servico, a.data_hora, a.status, a.observacoes,
              a.valor, a.forma_pagamento, a.pago, a.pago_em,
+             a.paciente_id, a.dentista_id,
              p.nome AS paciente_nome, p.email AS paciente_email,
              pgp_sym_decrypt(p.telefone, $1) AS telefone,
              d.nome AS dentista_nome
@@ -26,9 +27,27 @@ router.get('/agendamentos', adminAuth, async (req, res) => {
       params.push(data);
       sql += ` AND DATE(a.data_hora) = $${params.length}::date`;
     }
+    // Intervalo de datas (usado pela grade semanal) — independente do
+    // filtro de "data" única, para não quebrar quem já chama com "data".
+    if (dataInicio) {
+      params.push(dataInicio);
+      sql += ` AND DATE(a.data_hora) >= $${params.length}::date`;
+    }
+    if (dataFim) {
+      params.push(dataFim);
+      sql += ` AND DATE(a.data_hora) <= $${params.length}::date`;
+    }
     if (status) {
       params.push(status);
       sql += ` AND a.status = $${params.length}`;
+    }
+    if (dentistaId) {
+      const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+      if (!uuidRegex.test(dentistaId)) {
+        return res.status(400).json({ erro: 'Dentista inválido.' });
+      }
+      params.push(dentistaId);
+      sql += ` AND a.dentista_id = $${params.length}`;
     }
 
     sql += ' ORDER BY a.data_hora ASC';
@@ -249,6 +268,67 @@ router.post('/agendamentos', adminAuth, async (req, res) => {
   } catch (err) {
     console.error('[ADMIN AGENDAMENTO POST]', err.message);
     res.status(500).json({ erro: 'Erro ao criar agendamento.' });
+  }
+});
+
+// ============================================================
+// PATCH /api/admin/agendamentos/:id/remarcar — muda data/hora
+// (e opcionalmente o dentista) de um agendamento existente,
+// preservando o histórico de pagamento e o status atual.
+// ============================================================
+router.patch('/agendamentos/:id/remarcar', adminAuth, async (req, res) => {
+  const { id } = req.params;
+  const { dataHora, dentistaId } = req.body;
+
+  if (!dataHora) {
+    return res.status(400).json({ erro: 'Nova data e horário são obrigatórios.' });
+  }
+
+  const novaData = new Date(dataHora);
+  if (isNaN(novaData.getTime())) {
+    return res.status(400).json({ erro: 'Data inválida.' });
+  }
+
+  let dentistaIdValido = undefined; // undefined = não alterar o dentista atual
+  if (dentistaId !== undefined) {
+    if (dentistaId === null || dentistaId === '') {
+      dentistaIdValido = null; // remove o dentista do agendamento
+    } else {
+      const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+      if (!uuidRegex.test(dentistaId)) {
+        return res.status(400).json({ erro: 'Dentista inválido.' });
+      }
+      dentistaIdValido = dentistaId;
+    }
+  }
+
+  try {
+    let rows;
+    if (dentistaIdValido === undefined) {
+      // Não tocar no dentista — só atualiza a data/hora.
+      ({ rows } = await query(
+        `UPDATE agendamentos SET data_hora = $1, atualizado_em = NOW()
+         WHERE id = $2 RETURNING id, data_hora, dentista_id, status`,
+        [novaData.toISOString(), id]
+      ));
+    } else {
+      // dentistaIdValido pode ser um UUID válido OU null (remover dentista) —
+      // nos dois casos queremos sobrescrever de fato, por isso não usamos COALESCE aqui.
+      ({ rows } = await query(
+        `UPDATE agendamentos SET data_hora = $1, dentista_id = $2, atualizado_em = NOW()
+         WHERE id = $3 RETURNING id, data_hora, dentista_id, status`,
+        [novaData.toISOString(), dentistaIdValido, id]
+      ));
+    }
+
+    if (!rows.length) return res.status(404).json({ erro: 'Agendamento não encontrado.' });
+
+    console.log(`[ADMIN] ${req.admin.email} remarcou agendamento ${id} para ${novaData.toISOString()}`);
+
+    res.json({ mensagem: 'Consulta remarcada.', agendamento: rows[0] });
+  } catch (err) {
+    console.error('[ADMIN REMARCAR]', err.message);
+    res.status(500).json({ erro: 'Erro ao remarcar consulta.' });
   }
 });
 

@@ -33,9 +33,43 @@
     .btn-logout { background: rgba(255,255,255,.1); border: none; color: #fff; padding: 4px 10px; border-radius: 6px; cursor: pointer; font-size: 12px; font-family: inherit; }
 
     /* LAYOUT */
-    .container { max-width: 1000px; margin: 0 auto; padding: 24px 20px; }
+    .container { max-width: 1400px; margin: 0 auto; padding: 24px 20px; }
     .screen { display: none; }
     .screen.active { display: block; }
+
+    /* AGENDA — GRADE SEMANAL */
+    .agenda-toolbar { display: flex; align-items: center; gap: 10px; margin-bottom: 16px; flex-wrap: wrap; }
+    .agenda-nav { display: flex; align-items: center; gap: 6px; }
+    .agenda-nav-label { font-size: 13px; font-weight: 600; color: var(--text2); min-width: 170px; text-align: center; }
+    .btn-icon { width: 30px; height: 30px; border-radius: 6px; border: 1px solid var(--border); background: var(--bg); color: var(--text2); cursor: pointer; display: flex; align-items: center; justify-content: center; font-family: inherit; }
+    .btn-icon:hover { background: var(--bg2); }
+
+    .agenda-grid-wrap { background: var(--bg); border: 1px solid var(--border); border-radius: var(--radius); box-shadow: var(--shadow); overflow-x: auto; }
+    .agenda-grid { display: grid; grid-template-columns: 64px repeat(6, 1fr); min-width: 920px; }
+    .agenda-cell { border-bottom: 1px solid var(--border); border-right: 1px solid var(--border); padding: 4px; min-height: 56px; position: relative; }
+    .agenda-cell:last-child { border-right: none; }
+    .agenda-head { background: var(--bg2); padding: 10px 6px; text-align: center; border-bottom: 1px solid var(--border); border-right: 1px solid var(--border); position: sticky; top: 0; }
+    .agenda-head:last-child { border-right: none; }
+    .agenda-head .dow { font-size: 11px; font-weight: 600; color: var(--text2); text-transform: uppercase; letter-spacing: .03em; }
+    .agenda-head .dnum { font-size: 16px; font-weight: 700; color: var(--text); margin-top: 2px; }
+    .agenda-head.hoje .dnum { color: var(--green-dark); }
+    .agenda-hour { background: var(--bg2); padding: 6px; font-size: 11px; color: var(--text3); text-align: right; border-bottom: 1px solid var(--border); border-right: 1px solid var(--border); }
+    .agenda-cell.vazia { cursor: pointer; }
+    .agenda-cell.vazia:hover { background: var(--green-light); }
+    .agenda-bloco { background: var(--green-light); border: 1px solid var(--green-border); border-radius: 6px; padding: 4px 6px; font-size: 11px; cursor: pointer; overflow: hidden; line-height: 1.3; }
+    .agenda-bloco:hover { background: var(--green-border); }
+    .agenda-bloco.st-pendente { background: #FEF9C3; border-color: #FDE68A; }
+    .agenda-bloco.st-cancelado { background: var(--danger-bg); border-color: #fca5a5; text-decoration: line-through; opacity: .7; }
+    .agenda-bloco.st-realizado { background: #E0E7FF; border-color: #C7D2FE; }
+    .agenda-bloco .ab-nome { font-weight: 700; display: block; }
+    .agenda-bloco .ab-serv { color: var(--text2); display: block; }
+    .agenda-bloco.pago::after { content: '✓ pago'; display: block; font-size: 10px; color: var(--green-dark); font-weight: 600; }
+
+    /* MODAL */
+    .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,.4); display: flex; align-items: center; justify-content: center; z-index: 50; }
+    .modal-box { background: var(--bg); border-radius: var(--radius); padding: 22px; width: 380px; max-width: 92vw; box-shadow: var(--shadow); max-height: 88vh; overflow-y: auto; }
+    .modal-box h3 { font-size: 15px; margin-bottom: 14px; }
+    .modal-actions { display: flex; gap: 8px; margin-top: 16px; flex-wrap: wrap; }
 
     /* STATS */
     .stats-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 12px; margin-bottom: 24px; }
@@ -90,6 +124,8 @@
 
     .select-status { padding: 4px 8px; font-size: 12px; border: 1px solid var(--border); border-radius: 6px; font-family: inherit; cursor: pointer; }
     .empty { text-align: center; padding: 32px; color: var(--text3); font-size: 13px; }
+    .btn-modo { padding: 6px 14px; font-size: 12px; font-weight: 500; border: none; background: var(--bg); color: var(--text2); cursor: pointer; font-family: inherit; }
+    .btn-modo.active { background: var(--green-light); color: var(--green-dark); font-weight: 600; }
   </style>
 </head>
 <body>
@@ -149,9 +185,36 @@
     <!-- AGENDAMENTOS -->
     <div id="screen-agendamentos" class="screen">
       <div class="sec-header">
-        <h2>Todos os agendamentos</h2>
-        <button class="btn btn-primary" id="btn-novo-agendamento"><i class="ti ti-plus"></i> Novo agendamento</button>
+        <h2>Agenda</h2>
+        <div style="display:flex;gap:8px">
+          <div style="display:flex;border:1px solid var(--border);border-radius:8px;overflow:hidden">
+            <button class="btn-modo active" id="btn-modo-grade">Grade</button>
+            <button class="btn-modo" id="btn-modo-lista">Lista</button>
+          </div>
+          <button class="btn btn-primary" id="btn-novo-agendamento"><i class="ti ti-plus"></i> Novo agendamento</button>
+        </div>
       </div>
+
+      <!-- MODO GRADE -->
+      <div id="modo-grade">
+        <div class="agenda-toolbar">
+          <div class="agenda-nav">
+            <button class="btn-icon" id="ag-sem-anterior"><i class="ti ti-chevron-left"></i></button>
+            <span class="agenda-nav-label" id="ag-sem-label">—</span>
+            <button class="btn-icon" id="ag-sem-proxima"><i class="ti ti-chevron-right"></i></button>
+          </div>
+          <button class="btn btn-outline btn-sm" id="ag-sem-hoje">Hoje</button>
+          <select class="filter-input" id="ag-filtro-dentista" style="margin-left:auto">
+            <option value="">Todos os dentistas</option>
+          </select>
+        </div>
+        <div class="agenda-grid-wrap">
+          <div class="agenda-grid" id="agenda-grid"></div>
+        </div>
+      </div>
+
+      <!-- MODO LISTA -->
+      <div id="modo-lista" style="display:none">
 
       <div id="form-agendamento" class="card" style="display:none">
         <h3 style="font-size:14px;margin-bottom:14px">Novo agendamento</h3>
@@ -252,6 +315,7 @@
           <thead><tr><th>Paciente</th><th>Serviço</th><th>Data/Hora</th><th>Dentista</th><th>Status</th><th>Pagamento</th><th>Ação</th></tr></thead>
           <tbody id="tbody-agendamentos"><tr><td colspan="7" class="empty">Carregando…</td></tr></tbody>
         </table>
+      </div>
       </div>
     </div>
 
@@ -364,7 +428,7 @@ Object.keys(tabs).forEach(key => {
     document.getElementById('screen-' + key).classList.add('active');
     document.getElementById('tab-' + key).classList.add('active');
     if (key === 'dashboard') carregarDashboard();
-    if (key === 'agendamentos') carregarAgendamentos();
+    if (key === 'agendamentos') carregarGradeSemana();
     if (key === 'pacientes') carregarPacientes();
     if (key === 'dentistas') carregarDentistas();
   });
@@ -444,7 +508,221 @@ async function carregarDashboard() {
 }
 
 // ============================================================
-// AGENDAMENTOS
+// AGENDA — GRADE SEMANAL
+// ============================================================
+const HORAS_GRADE = [8, 9, 10, 11, 13, 14, 15, 16];
+const DIAS_SEMANA = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
+let agSemanaInicio = inicioDaSemana(new Date());
+let agendamentosSemanaCache = [];
+
+function inicioDaSemana(d) {
+  const data = new Date(d);
+  data.setHours(0, 0, 0, 0);
+  data.setDate(data.getDate() - data.getDay()); // domingo como início
+  return data;
+}
+
+function formatarDataYMD(d) {
+  return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+}
+
+document.getElementById('btn-modo-grade').addEventListener('click', () => {
+  document.getElementById('btn-modo-grade').classList.add('active');
+  document.getElementById('btn-modo-lista').classList.remove('active');
+  document.getElementById('modo-grade').style.display = 'block';
+  document.getElementById('modo-lista').style.display = 'none';
+  carregarGradeSemana();
+});
+document.getElementById('btn-modo-lista').addEventListener('click', () => {
+  document.getElementById('btn-modo-lista').classList.add('active');
+  document.getElementById('btn-modo-grade').classList.remove('active');
+  document.getElementById('modo-lista').style.display = 'block';
+  document.getElementById('modo-grade').style.display = 'none';
+  carregarAgendamentos();
+});
+
+document.getElementById('ag-sem-anterior').addEventListener('click', () => {
+  agSemanaInicio.setDate(agSemanaInicio.getDate() - 7);
+  carregarGradeSemana();
+});
+document.getElementById('ag-sem-proxima').addEventListener('click', () => {
+  agSemanaInicio.setDate(agSemanaInicio.getDate() + 7);
+  carregarGradeSemana();
+});
+document.getElementById('ag-sem-hoje').addEventListener('click', () => {
+  agSemanaInicio = inicioDaSemana(new Date());
+  carregarGradeSemana();
+});
+document.getElementById('ag-filtro-dentista').addEventListener('change', renderizarGrade);
+
+async function popularFiltroDentistaGrade() {
+  try {
+    const { dentistas } = await apiFetch('/dentistas');
+    const sel = document.getElementById('ag-filtro-dentista');
+    const valorAtual = sel.value;
+    sel.innerHTML = '<option value="">Todos os dentistas</option>' +
+      dentistas.filter(d => d.ativo).map(d => `<option value="${esc(d.id)}">${esc(d.nome)} ${esc(d.sobrenome) || ''}</option>`).join('');
+    sel.value = valorAtual;
+  } catch (err) { console.error(err); }
+}
+
+async function carregarGradeSemana() {
+  await popularFiltroDentistaGrade();
+
+  // A grade exibe segunda (+1 dia do início da semana) a sábado (+6 dias).
+  const inicioGrade = new Date(agSemanaInicio);
+  inicioGrade.setDate(inicioGrade.getDate() + 1);
+  const fim = new Date(agSemanaInicio);
+  fim.setDate(fim.getDate() + 6);
+
+  const labelInicio = inicioGrade.toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' });
+  const labelFim = fim.toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' });
+  document.getElementById('ag-sem-label').textContent = `${labelInicio} – ${labelFim}`;
+
+  try {
+    const { agendamentos } = await apiFetch(`/agendamentos?dataInicio=${formatarDataYMD(inicioGrade)}&dataFim=${formatarDataYMD(fim)}`);
+    agendamentosSemanaCache = agendamentos;
+    renderizarGrade();
+  } catch (err) { console.error(err); }
+}
+
+function renderizarGrade() {
+  const dentistaFiltro = document.getElementById('ag-filtro-dentista').value;
+  const grid = document.getElementById('agenda-grid');
+  const hoje = formatarDataYMD(new Date());
+
+  // Segunda a sábado (pula domingo, clínica não atende)
+  const dias = [];
+  for (let i = 1; i <= 6; i++) {
+    const d = new Date(agSemanaInicio);
+    d.setDate(d.getDate() + i);
+    dias.push(d);
+  }
+
+  let html = '<div class="agenda-cell agenda-head" style="border-right:1px solid var(--border)"></div>';
+  dias.forEach(d => {
+    const ymd = formatarDataYMD(d);
+    html += `<div class="agenda-head ${ymd === hoje ? 'hoje' : ''}">
+      <div class="dow">${DIAS_SEMANA[d.getDay()]}</div>
+      <div class="dnum">${d.getDate()}</div>
+    </div>`;
+  });
+
+  HORAS_GRADE.forEach(hora => {
+    html += `<div class="agenda-hour">${String(hora).padStart(2, '0')}:00</div>`;
+    dias.forEach(d => {
+      const ymd = formatarDataYMD(d);
+      const ags = agendamentosSemanaCache.filter(a => {
+        const dt = new Date(a.data_hora);
+        if (formatarDataYMD(dt) !== ymd || dt.getHours() !== hora) return false;
+        if (dentistaFiltro && a.dentista_id !== dentistaFiltro) return false;
+        return true;
+      });
+
+      if (!ags.length) {
+        html += `<div class="agenda-cell vazia" data-data="${ymd}" data-hora="${String(hora).padStart(2,'0')}:00"></div>`;
+      } else {
+        html += `<div class="agenda-cell">` + ags.map(a => `
+          <div class="agenda-bloco st-${esc(a.status)} ${a.pago ? 'pago' : ''}" data-id="${esc(a.id)}">
+            <span class="ab-nome">${esc(a.paciente_nome)}</span>
+            <span class="ab-serv">${esc(a.servico)}</span>
+          </div>`).join('') + `</div>`;
+      }
+    });
+  });
+
+  grid.innerHTML = html;
+
+  grid.querySelectorAll('.agenda-cell.vazia').forEach(cell => {
+    cell.addEventListener('click', () => {
+      resetarFormAgendamento();
+      popularSelectDentistas();
+      document.getElementById('ag-data').value = cell.dataset.data;
+      document.getElementById('ag-hora').value = cell.dataset.hora;
+      document.getElementById('btn-modo-lista').click();
+      document.getElementById('form-agendamento').style.display = 'block';
+    });
+  });
+
+  grid.querySelectorAll('.agenda-bloco').forEach(bloco => {
+    bloco.addEventListener('click', () => {
+      const ag = agendamentosSemanaCache.find(a => a.id === bloco.dataset.id);
+      if (ag) abrirModalDetalhe(ag);
+    });
+  });
+}
+
+// ============================================================
+// MODAL DE DETALHE / REMARCAÇÃO
+// ============================================================
+function abrirModalDetalhe(ag) {
+  const dt = new Date(ag.data_hora);
+  const overlay = document.createElement('div');
+  overlay.className = 'modal-overlay';
+  overlay.innerHTML = `
+    <div class="modal-box">
+      <h3>${esc(ag.paciente_nome)}</h3>
+      <div id="toast-modal" class="toast"></div>
+      <p style="font-size:13px;color:var(--text2);margin-bottom:4px"><strong>Serviço:</strong> ${esc(ag.servico)}</p>
+      <p style="font-size:13px;color:var(--text2);margin-bottom:4px"><strong>Atual:</strong> ${fmtData(ag.data_hora)}</p>
+      <p style="font-size:13px;color:var(--text2);margin-bottom:14px"><strong>Status:</strong> <span class="badge badge-${esc(ag.status)}">${esc(ag.status)}</span></p>
+
+      <div id="modal-form-remarcar" style="display:none;margin-bottom:10px">
+        <div class="form-row">
+          <div class="form-group"><label class="form-label">Nova data</label><input class="form-input" id="modal-nova-data" type="date" value="${formatarDataYMD(dt)}" /></div>
+          <div class="form-group"><label class="form-label">Novo horário</label><input class="form-input" id="modal-nova-hora" type="time" value="${String(dt.getHours()).padStart(2,'0')}:${String(dt.getMinutes()).padStart(2,'0')}" /></div>
+        </div>
+        <button class="btn btn-primary btn-sm" id="modal-confirmar-remarcar">Confirmar nova data</button>
+      </div>
+
+      <div class="modal-actions">
+        <button class="btn btn-outline btn-sm" id="modal-btn-remarcar"><i class="ti ti-calendar-time"></i> Remarcar</button>
+        ${ag.status !== 'cancelado' ? `<button class="btn btn-danger btn-sm" id="modal-btn-cancelar"><i class="ti ti-x"></i> Cancelar consulta</button>` : ''}
+        <button class="btn btn-outline btn-sm" id="modal-btn-fechar">Fechar</button>
+      </div>
+    </div>`;
+  document.body.appendChild(overlay);
+
+  overlay.addEventListener('click', (e) => { if (e.target === overlay) overlay.remove(); });
+  overlay.querySelector('#modal-btn-fechar').addEventListener('click', () => overlay.remove());
+
+  overlay.querySelector('#modal-btn-remarcar').addEventListener('click', () => {
+    overlay.querySelector('#modal-form-remarcar').style.display = 'block';
+  });
+
+  overlay.querySelector('#modal-confirmar-remarcar').addEventListener('click', async () => {
+    const novaData = overlay.querySelector('#modal-nova-data').value;
+    const novaHora = overlay.querySelector('#modal-nova-hora').value;
+    if (!novaData || !novaHora) return;
+    try {
+      await apiFetch(`/agendamentos/${ag.id}/remarcar`, {
+        method: 'PATCH',
+        body: JSON.stringify({ dataHora: new Date(`${novaData}T${novaHora}:00`).toISOString() }),
+      });
+      overlay.remove();
+      carregarGradeSemana();
+    } catch (err) {
+      mostrarToast('toast-modal', 'error', err.message);
+    }
+  });
+
+  const btnCancelar = overlay.querySelector('#modal-btn-cancelar');
+  if (btnCancelar) {
+    btnCancelar.addEventListener('click', async () => {
+      if (!confirm('Cancelar esta consulta?')) return;
+      try {
+        await apiFetch(`/agendamentos/${ag.id}`, { method: 'PATCH', body: JSON.stringify({ status: 'cancelado' }) });
+        overlay.remove();
+        carregarGradeSemana();
+      } catch (err) {
+        mostrarToast('toast-modal', 'error', err.message);
+      }
+    });
+  }
+}
+
+// ============================================================
+// AGENDAMENTOS (lista / tabela)
 // ============================================================
 async function carregarAgendamentos() {
   const data = document.getElementById('filtro-data').value;
