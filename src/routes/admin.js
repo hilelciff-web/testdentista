@@ -216,12 +216,13 @@ router.patch('/pacientes/:id', adminAuth, async (req, res) => {
 });
 
 // ============================================================
-// GET /api/admin/dentistas — todos os dentistas
+// GET /api/admin/dentistas — todos os profissionais
+// (dentistas, higienistas, recepção, etc. — qualquer profissão)
 // ============================================================
 router.get('/dentistas', adminAuth, async (req, res) => {
   try {
     const { rows } = await query(
-      `SELECT id, nome, sobrenome, cro, especialidade, ativo FROM dentistas ORDER BY nome`
+      `SELECT id, nome, sobrenome, cro, especialidade, foto_url, ativo FROM dentistas ORDER BY nome`
     );
     res.json({ dentistas: rows });
   } catch (err) {
@@ -231,24 +232,65 @@ router.get('/dentistas', adminAuth, async (req, res) => {
 });
 
 // ============================================================
-// POST /api/admin/dentistas — adiciona dentista
+// POST /api/admin/dentistas — adiciona profissional. O campo
+// "especialidade" funciona como a profissão em texto livre
+// (Dentista, Ortodontista, Higienista, Recepcionista, etc.).
+// CRO é opcional — só faz sentido para quem de fato tem registro.
 // ============================================================
 router.post('/dentistas', adminAuth, async (req, res) => {
-  const { nome, sobrenome, cro, especialidade, email } = req.body;
-  if (!nome || !cro) return res.status(400).json({ erro: 'Nome e CRO obrigatórios.' });
+  const { nome, sobrenome, cro, especialidade, email, fotoUrl } = req.body;
+  if (!nome || !especialidade) {
+    return res.status(400).json({ erro: 'Nome e profissão são obrigatórios.' });
+  }
   try {
     const { rows } = await query(
-      `INSERT INTO dentistas (nome, sobrenome, cro, especialidade, email, senha_hash)
-       VALUES ($1, $2, $3, $4, $5, 'placeholder') RETURNING id, nome, cro`,
-      [nome, sobrenome || '', cro, especialidade || '', email || '']
+      `INSERT INTO dentistas (nome, sobrenome, cro, especialidade, email, foto_url, senha_hash)
+       VALUES ($1, $2, $3, $4, $5, $6, 'placeholder') RETURNING id, nome, cro, especialidade, foto_url`,
+      [nome, sobrenome || '', cro || null, especialidade, email || '', fotoUrl || null]
     );
 
-    console.log(`[ADMIN] ${req.admin.email} adicionou dentista ${rows[0].nome}`);
+    console.log(`[ADMIN] ${req.admin.email} adicionou profissional ${rows[0].nome}`);
 
-    res.status(201).json({ mensagem: 'Dentista adicionado.', dentista: rows[0] });
+    res.status(201).json({ mensagem: 'Profissional adicionado.', dentista: rows[0] });
   } catch (err) {
     console.error('[ADMIN DENTISTA POST]', err.message);
-    res.status(500).json({ erro: 'Erro ao adicionar dentista.' });
+    res.status(500).json({ erro: 'Erro ao adicionar profissional.' });
+  }
+});
+
+// ============================================================
+// DELETE /api/admin/dentistas/:id — remove um profissional.
+// Não deleta de fato se houver agendamentos vinculados (FK),
+// nesse caso apenas desativa, para não perder o histórico.
+// ============================================================
+router.delete('/dentistas/:id', adminAuth, async (req, res) => {
+  const { id } = req.params;
+  const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+  if (!uuidRegex.test(id)) return res.status(400).json({ erro: 'Profissional inválido.' });
+
+  try {
+    const { rows: temAgendamentos } = await query(
+      'SELECT id FROM agendamentos WHERE dentista_id = $1 LIMIT 1',
+      [id]
+    );
+
+    if (temAgendamentos.length) {
+      // Tem histórico vinculado — não apaga de verdade, só desativa
+      // (assim some da lista de "ativos" mas o histórico continua íntegro).
+      await query('UPDATE dentistas SET ativo = FALSE WHERE id = $1', [id]);
+      console.log(`[ADMIN] ${req.admin.email} desativou profissional ${id} (tinha agendamentos vinculados)`);
+      return res.json({ mensagem: 'Profissional tem histórico de agendamentos — foi desativado em vez de excluído.', desativado: true });
+    }
+
+    const { rows } = await query('DELETE FROM dentistas WHERE id = $1 RETURNING id', [id]);
+    if (!rows.length) return res.status(404).json({ erro: 'Profissional não encontrado.' });
+
+    console.log(`[ADMIN] ${req.admin.email} excluiu profissional ${id}`);
+
+    res.json({ mensagem: 'Profissional excluído.', desativado: false });
+  } catch (err) {
+    console.error('[ADMIN DENTISTA DELETE]', err.message);
+    res.status(500).json({ erro: 'Erro ao excluir profissional.' });
   }
 });
 

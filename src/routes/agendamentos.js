@@ -15,14 +15,14 @@ const SERVICOS_VALIDOS = [
 ];
 
 // ============================================================
-// GET /api/agendamentos/dentistas — lista dentistas ativos (pública)
-// Usada pelo formulário de agendamento para popular o <select>
-// com os UUIDs reais, em vez de valores fixos no HTML.
+// GET /api/agendamentos/dentistas — lista profissionais ativos
+// (pública). Usada tanto para popular o <select> do formulário
+// de agendamento quanto para a seção "Nossa equipe" do site.
 // ============================================================
 router.get('/dentistas', async (req, res) => {
   try {
     const { rows } = await query(
-      `SELECT id, nome, especialidade FROM dentistas WHERE ativo = TRUE ORDER BY nome`
+      `SELECT id, nome, sobrenome, especialidade, foto_url FROM dentistas WHERE ativo = TRUE ORDER BY nome`
     );
     res.json({ dentistas: rows });
   } catch (err) {

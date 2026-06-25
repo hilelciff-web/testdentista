@@ -123,7 +123,8 @@
       .team-grid { grid-template-columns: repeat(2, 1fr); gap: 12px; }
       .team-grid .doctor-card { margin-bottom: 0; }
     }
-    .avatar { width: 48px; height: 48px; border-radius: 50%; background: var(--green-light); display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 16px; color: var(--green); flex-shrink: 0; }
+    .avatar { width: 48px; height: 48px; border-radius: 50%; background: var(--green-light); display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 16px; color: var(--green); flex-shrink: 0; overflow: hidden; }
+    .avatar img { width: 100%; height: 100%; object-fit: cover; display: block; }
     .doc-info h3 { font-size: 14px; font-weight: 600; }
     .doc-info p { font-size: 12px; color: var(--text2); margin-top: 2px; }
     .badge { display: inline-block; font-size: 11px; font-weight: 500; padding: 2px 8px; border-radius: 999px; margin-top: 5px; background: var(--green-light); color: var(--green); }
@@ -233,23 +234,8 @@
   </div>
 
   <div class="sec-header"><h2>Nossa equipe</h2><p>Especialistas prontos para te atender.</p></div>
-  <div class="team-grid">
-  <div class="doctor-card">
-    <div class="avatar">AS</div>
-    <div class="doc-info">
-      <h3>Dra. Ana Silva</h3>
-      <p>Ortodontia e Estética Dental · CRO 12.345</p>
-      <span class="badge">Clareamento · Aparelho</span>
-    </div>
-  </div>
-  <div class="doctor-card">
-    <div class="avatar">CR</div>
-    <div class="doc-info">
-      <h3>Dr. Carlos Ramos</h3>
-      <p>Implantodontia e Cirurgia · CRO 54.321</p>
-      <span class="badge">Implantes · Extrações</span>
-    </div>
-  </div>
+  <div class="team-grid" id="team-grid">
+    <p style="font-size:13px;color:var(--text3)">Carregando equipe…</p>
   </div>
 
   <footer><i class="ti ti-lock"></i> Dados protegidos com PostgreSQL + TLS + bcrypt</footer>
@@ -882,9 +868,53 @@ function animarContadores() {
   });
 }
 
+// ============================================================
+// EQUIPE — carrega profissionais reais cadastrados pelo admin
+// (substitui os cards fixos de exemplo que existiam antes)
+// ============================================================
+function escEquipe(valor) {
+  if (valor === null || valor === undefined) return '';
+  return String(valor)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
+function iniciais(nome, sobrenome) {
+  const n = (nome || '').trim()[0] || '';
+  const s = (sobrenome || '').trim()[0] || '';
+  return (n + s).toUpperCase() || '?';
+}
+
+async function carregarEquipe() {
+  const grid = document.getElementById('team-grid');
+  try {
+    const { dentistas } = await apiFetch('/agendamentos/dentistas');
+    if (!dentistas.length) {
+      grid.innerHTML = '<p style="font-size:13px;color:var(--text3)">Em breve, novos profissionais.</p>';
+      return;
+    }
+    grid.innerHTML = dentistas.map(d => `
+      <div class="doctor-card">
+        <div class="avatar">${d.foto_url
+          ? `<img src="${escEquipe(d.foto_url)}" alt="${escEquipe(d.nome)}" onerror="this.parentElement.textContent='${escEquipe(iniciais(d.nome, d.sobrenome))}'" />`
+          : escEquipe(iniciais(d.nome, d.sobrenome))}</div>
+        <div class="doc-info">
+          <h3>${escEquipe(d.nome)} ${escEquipe(d.sobrenome) || ''}</h3>
+          <p>${escEquipe(d.especialidade) || ''}</p>
+        </div>
+      </div>`).join('');
+  } catch (err) {
+    grid.innerHTML = '<p style="font-size:13px;color:var(--text3)">Não foi possível carregar a equipe agora.</p>';
+  }
+}
+
 // Init
 atualizarNav();
 animarContadores();
+carregarEquipe();
 </script>
 </body>
 </html>
