@@ -156,6 +156,7 @@
       <button class="nav-tab active" id="tab-dashboard">Dashboard</button>
       <button class="nav-tab" id="tab-agendamentos">Agendamentos</button>
       <button class="nav-tab" id="tab-pacientes">Pacientes</button>
+      <button class="nav-tab" id="tab-caixa">Caixa</button>
       <button class="nav-tab" id="tab-dentistas">Dentistas</button>
     </div>
     <div class="nav-right">
@@ -321,11 +322,99 @@
 
     <!-- PACIENTES -->
     <div id="screen-pacientes" class="screen">
-      <div class="sec-header"><h2>Pacientes cadastrados</h2></div>
+      <div id="pacientes-lista-modo">
+        <div class="sec-header"><h2>Pacientes cadastrados</h2></div>
+        <div class="filters">
+          <input class="filter-input" id="pac-busca-lista" placeholder="Buscar por nome ou email…" style="flex:1;max-width:300px" />
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>Nome</th><th>Email</th><th>Telefone</th><th>Cadastro</th><th>Status</th></tr></thead>
+            <tbody id="tbody-pacientes"><tr><td colspan="5" class="empty">Carregando…</td></tr></tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- DETALHE / HISTÓRICO DO PACIENTE -->
+      <div id="pacientes-detalhe-modo" style="display:none">
+        <div class="sec-header">
+          <button class="btn btn-outline btn-sm" id="pac-voltar-lista"><i class="ti ti-arrow-left"></i> Voltar</button>
+        </div>
+        <div id="toast-pac-detalhe" class="toast"></div>
+
+        <div class="card">
+          <div class="sec-header"><h2 id="pac-det-nome">—</h2><button class="btn btn-outline btn-sm" id="pac-btn-editar">Editar cadastro</button></div>
+          <div id="pac-det-view" class="form-row" style="font-size:13px;color:var(--text2)">
+            <div><strong>Email:</strong> <span id="pac-det-email"></span></div>
+            <div><strong>Telefone:</strong> <span id="pac-det-telefone"></span></div>
+          </div>
+          <div id="pac-det-form" style="display:none">
+            <div class="form-row">
+              <div class="form-group"><label class="form-label">Nome</label><input class="form-input" id="pac-ed-nome" /></div>
+              <div class="form-group"><label class="form-label">Sobrenome</label><input class="form-input" id="pac-ed-sobrenome" /></div>
+            </div>
+            <div class="form-row">
+              <div class="form-group"><label class="form-label">Email</label><input class="form-input" id="pac-ed-email" type="email" /></div>
+              <div class="form-group"><label class="form-label">Telefone</label><input class="form-input" id="pac-ed-telefone" /></div>
+            </div>
+            <div style="display:flex;gap:8px">
+              <button class="btn btn-primary btn-sm" id="pac-btn-salvar-edicao">Salvar</button>
+              <button class="btn btn-outline btn-sm" id="pac-btn-cancelar-edicao">Cancelar</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="stats-grid" style="margin-bottom:16px">
+          <div class="stat-card"><div class="stat-n" id="pac-st-total">—</div><div class="stat-l">Consultas no total</div></div>
+          <div class="stat-card"><div class="stat-n" id="pac-st-realizadas">—</div><div class="stat-l">Realizadas</div></div>
+          <div class="stat-card"><div class="stat-n" id="pac-st-pago">—</div><div class="stat-l">Total pago (R$)</div></div>
+          <div class="stat-card"><div class="stat-n" id="pac-st-pendente">—</div><div class="stat-l">Pendente (R$)</div></div>
+        </div>
+
+        <div class="sec-header"><h2>Histórico de consultas</h2></div>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>Data/Hora</th><th>Serviço</th><th>Dentista</th><th>Status</th><th>Pagamento</th></tr></thead>
+            <tbody id="tbody-pac-historico"><tr><td colspan="5" class="empty">Carregando…</td></tr></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- CAIXA -->
+    <div id="screen-caixa" class="screen">
+      <div class="sec-header">
+        <h2>Fechamento de caixa</h2>
+      </div>
+      <div class="agenda-toolbar">
+        <div class="agenda-nav">
+          <button class="btn-icon" id="caixa-dia-anterior"><i class="ti ti-chevron-left"></i></button>
+          <span class="agenda-nav-label" id="caixa-data-label">—</span>
+          <button class="btn-icon" id="caixa-dia-proximo"><i class="ti ti-chevron-right"></i></button>
+        </div>
+        <button class="btn btn-outline btn-sm" id="caixa-hoje">Hoje</button>
+      </div>
+
+      <div class="stats-grid" id="caixa-formas-grid"></div>
+
+      <div class="card" style="text-align:center;padding:24px">
+        <div class="stat-l">Total recebido no dia</div>
+        <div class="stat-n" id="caixa-total" style="font-size:36px">R$ —</div>
+      </div>
+
+      <div class="sec-header"><h2>Recebimentos do dia</h2></div>
+      <div class="table-wrap" style="margin-bottom:24px">
+        <table>
+          <thead><tr><th>Paciente</th><th>Serviço</th><th>Forma</th><th>Valor</th><th>Horário</th></tr></thead>
+          <tbody id="tbody-caixa-recebidos"><tr><td colspan="5" class="empty">Carregando…</td></tr></tbody>
+        </table>
+      </div>
+
+      <div class="sec-header"><h2>Pendências do dia <span style="font-size:12px;color:var(--text2);font-weight:400">(consultas de hoje ainda não pagas)</span></h2></div>
       <div class="table-wrap">
         <table>
-          <thead><tr><th>Nome</th><th>Email</th><th>Telefone</th><th>Cadastro</th><th>Status</th></tr></thead>
-          <tbody id="tbody-pacientes"><tr><td colspan="5" class="empty">Carregando…</td></tr></tbody>
+          <thead><tr><th>Paciente</th><th>Serviço</th><th>Horário</th><th>Status</th><th>Valor previsto</th></tr></thead>
+          <tbody id="tbody-caixa-pendentes"><tr><td colspan="5" class="empty">Carregando…</td></tr></tbody>
         </table>
       </div>
     </div>
@@ -419,7 +508,7 @@ if (ADMIN_TOKEN) {
 // ============================================================
 // NAVEGAÇÃO
 // ============================================================
-const tabs = { dashboard: 'screen-dashboard', agendamentos: 'screen-agendamentos', pacientes: 'screen-pacientes', dentistas: 'screen-dentistas' };
+const tabs = { dashboard: 'screen-dashboard', agendamentos: 'screen-agendamentos', pacientes: 'screen-pacientes', caixa: 'screen-caixa', dentistas: 'screen-dentistas' };
 
 Object.keys(tabs).forEach(key => {
   document.getElementById('tab-' + key).addEventListener('click', () => {
@@ -430,6 +519,8 @@ Object.keys(tabs).forEach(key => {
     if (key === 'dashboard') carregarDashboard();
     if (key === 'agendamentos') carregarGradeSemana();
     if (key === 'pacientes') carregarPacientes();
+    if (key === 'pacientes') voltarParaListaPacientes();
+    if (key === 'caixa') carregarCaixa();
     if (key === 'dentistas') carregarDentistas();
   });
 });
@@ -953,21 +1044,194 @@ document.getElementById('btn-salvar-agendamento').addEventListener('click', asyn
 });
 
 // ============================================================
-// PACIENTES
+// PACIENTES — lista + busca local
 // ============================================================
+let pacientesCache = [];
+
 async function carregarPacientes() {
   try {
     const { pacientes } = await apiFetch('/pacientes');
-    const tbody = document.getElementById('tbody-pacientes');
-    if (!pacientes.length) { tbody.innerHTML = '<tr><td colspan="5" class="empty">Nenhum paciente.</td></tr>'; return; }
-    tbody.innerHTML = pacientes.map(p => `
-      <tr>
-        <td><strong>${esc(p.nome)} ${esc(p.sobrenome)}</strong></td>
-        <td>${esc(p.email)}</td>
-        <td>${esc(p.telefone) || '—'}</td>
-        <td>${new Date(p.criado_em).toLocaleDateString('pt-BR')}</td>
-        <td><span class="badge badge-${p.ativo ? 'ativo' : 'inativo'}">${p.ativo ? 'Ativo' : 'Inativo'}</span></td>
-      </tr>`).join('');
+    pacientesCache = pacientes;
+    renderizarListaPacientes(pacientes);
+  } catch (err) { console.error(err); }
+}
+
+function renderizarListaPacientes(pacientes) {
+  const tbody = document.getElementById('tbody-pacientes');
+  if (!pacientes.length) { tbody.innerHTML = '<tr><td colspan="5" class="empty">Nenhum paciente.</td></tr>'; return; }
+  tbody.innerHTML = pacientes.map(p => `
+    <tr class="linha-paciente" data-id="${esc(p.id)}" style="cursor:pointer">
+      <td><strong>${esc(p.nome)} ${esc(p.sobrenome)}</strong></td>
+      <td>${esc(p.email)}</td>
+      <td>${esc(p.telefone) || '—'}</td>
+      <td>${new Date(p.criado_em).toLocaleDateString('pt-BR')}</td>
+      <td><span class="badge badge-${p.ativo ? 'ativo' : 'inativo'}">${p.ativo ? 'Ativo' : 'Inativo'}</span></td>
+    </tr>`).join('');
+
+  tbody.querySelectorAll('.linha-paciente').forEach(tr => {
+    tr.addEventListener('click', () => abrirDetalhePaciente(tr.dataset.id));
+  });
+}
+
+document.getElementById('pac-busca-lista').addEventListener('input', (e) => {
+  const termo = e.target.value.trim().toLowerCase();
+  if (!termo) { renderizarListaPacientes(pacientesCache); return; }
+  const filtrados = pacientesCache.filter(p =>
+    `${p.nome} ${p.sobrenome}`.toLowerCase().includes(termo) || (p.email || '').toLowerCase().includes(termo)
+  );
+  renderizarListaPacientes(filtrados);
+});
+
+function voltarParaListaPacientes() {
+  document.getElementById('pacientes-detalhe-modo').style.display = 'none';
+  document.getElementById('pacientes-lista-modo').style.display = 'block';
+  carregarPacientes();
+}
+document.getElementById('pac-voltar-lista').addEventListener('click', voltarParaListaPacientes);
+
+// ============================================================
+// PACIENTES — detalhe, histórico e edição de cadastro
+// ============================================================
+let pacienteDetalheAtual = null;
+
+async function abrirDetalhePaciente(id) {
+  document.getElementById('pacientes-lista-modo').style.display = 'none';
+  document.getElementById('pacientes-detalhe-modo').style.display = 'block';
+  document.getElementById('pac-det-form').style.display = 'none';
+  document.getElementById('pac-det-view').style.display = 'flex';
+
+  try {
+    const { paciente, historico, totais } = await apiFetch(`/pacientes/${id}`);
+    pacienteDetalheAtual = paciente;
+
+    document.getElementById('pac-det-nome').textContent = `${paciente.nome} ${paciente.sobrenome || ''}`;
+    document.getElementById('pac-det-email').textContent = paciente.email;
+    document.getElementById('pac-det-telefone').textContent = paciente.telefone || '—';
+
+    document.getElementById('pac-st-total').textContent = totais.totalConsultas;
+    document.getElementById('pac-st-realizadas').textContent = totais.realizadas;
+    document.getElementById('pac-st-pago').textContent = totais.totalPago.toFixed(2);
+    document.getElementById('pac-st-pendente').textContent = totais.totalPendente.toFixed(2);
+
+    const tbody = document.getElementById('tbody-pac-historico');
+    if (!historico.length) {
+      tbody.innerHTML = '<tr><td colspan="5" class="empty">Nenhuma consulta registrada.</td></tr>';
+    } else {
+      tbody.innerHTML = historico.map(h => `
+        <tr>
+          <td>${fmtData(h.data_hora)}</td>
+          <td>${esc(h.servico)}</td>
+          <td>${esc(h.dentista_nome) || '—'}</td>
+          <td><span class="badge badge-${esc(h.status)}">${esc(h.status)}</span></td>
+          <td>${h.pago ? `<span class="badge badge-ativo">Pago${h.valor ? ' · R$ ' + esc(Number(h.valor).toFixed(2)) : ''}</span>` : (h.valor ? `Pendente · R$ ${esc(Number(h.valor).toFixed(2))}` : '—')}</td>
+        </tr>`).join('');
+    }
+  } catch (err) {
+    console.error(err);
+  }
+}
+
+document.getElementById('pac-btn-editar').addEventListener('click', () => {
+  if (!pacienteDetalheAtual) return;
+  document.getElementById('pac-ed-nome').value = pacienteDetalheAtual.nome || '';
+  document.getElementById('pac-ed-sobrenome').value = pacienteDetalheAtual.sobrenome || '';
+  document.getElementById('pac-ed-email').value = pacienteDetalheAtual.email || '';
+  document.getElementById('pac-ed-telefone').value = pacienteDetalheAtual.telefone || '';
+  document.getElementById('pac-det-view').style.display = 'none';
+  document.getElementById('pac-det-form').style.display = 'block';
+});
+
+document.getElementById('pac-btn-cancelar-edicao').addEventListener('click', () => {
+  document.getElementById('pac-det-form').style.display = 'none';
+  document.getElementById('pac-det-view').style.display = 'flex';
+});
+
+document.getElementById('pac-btn-salvar-edicao').addEventListener('click', async () => {
+  if (!pacienteDetalheAtual) return;
+  const nome = document.getElementById('pac-ed-nome').value.trim();
+  const sobrenome = document.getElementById('pac-ed-sobrenome').value.trim();
+  const email = document.getElementById('pac-ed-email').value.trim();
+  const telefone = document.getElementById('pac-ed-telefone').value.trim();
+
+  if (!nome || !email) {
+    mostrarToast('toast-pac-detalhe', 'error', 'Nome e email são obrigatórios.');
+    return;
+  }
+
+  try {
+    await apiFetch(`/pacientes/${pacienteDetalheAtual.id}`, {
+      method: 'PATCH',
+      body: JSON.stringify({ nome, sobrenome, email, telefone }),
+    });
+    mostrarToast('toast-pac-detalhe', 'success', 'Cadastro atualizado!');
+    abrirDetalhePaciente(pacienteDetalheAtual.id);
+  } catch (err) {
+    mostrarToast('toast-pac-detalhe', 'error', err.message);
+  }
+});
+
+// ============================================================
+// CAIXA — fechamento diário por forma de pagamento
+// ============================================================
+let caixaDataAtual = new Date();
+
+document.getElementById('caixa-dia-anterior').addEventListener('click', () => {
+  caixaDataAtual.setDate(caixaDataAtual.getDate() - 1);
+  carregarCaixa();
+});
+document.getElementById('caixa-dia-proximo').addEventListener('click', () => {
+  caixaDataAtual.setDate(caixaDataAtual.getDate() + 1);
+  carregarCaixa();
+});
+document.getElementById('caixa-hoje').addEventListener('click', () => {
+  caixaDataAtual = new Date();
+  carregarCaixa();
+});
+
+const NOMES_FORMA_PAGAMENTO = { dinheiro: 'Dinheiro', pix: 'Pix', cartao: 'Cartão', 'não informado': 'Não informado' };
+
+async function carregarCaixa() {
+  const ymd = formatarDataYMD(caixaDataAtual);
+  document.getElementById('caixa-data-label').textContent = caixaDataAtual.toLocaleDateString('pt-BR', { weekday: 'long', day: '2-digit', month: 'long' });
+
+  try {
+    const { totalRecebido, porFormaPagamento, recebidos, pendentes } = await apiFetch(`/caixa?data=${ymd}`);
+
+    document.getElementById('caixa-total').textContent = 'R$ ' + totalRecebido.toFixed(2);
+
+    const formasGrid = document.getElementById('caixa-formas-grid');
+    const formas = Object.keys(porFormaPagamento);
+    formasGrid.innerHTML = formas.length
+      ? formas.map(f => `
+          <div class="stat-card">
+            <div class="stat-n" style="font-size:20px">R$ ${esc(porFormaPagamento[f].toFixed(2))}</div>
+            <div class="stat-l">${esc(NOMES_FORMA_PAGAMENTO[f] || f)}</div>
+          </div>`).join('')
+      : '<div class="stat-card"><div class="stat-l">Nenhum recebimento registrado neste dia.</div></div>';
+
+    const tbodyRecebidos = document.getElementById('tbody-caixa-recebidos');
+    tbodyRecebidos.innerHTML = recebidos.length
+      ? recebidos.map(r => `
+          <tr>
+            <td>${esc(r.paciente_nome)}</td>
+            <td>${esc(r.servico)}</td>
+            <td>${esc(NOMES_FORMA_PAGAMENTO[r.forma_pagamento] || r.forma_pagamento || '—')}</td>
+            <td>R$ ${esc(Number(r.valor || 0).toFixed(2))}</td>
+            <td>${r.pago_em ? new Date(r.pago_em).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }) : '—'}</td>
+          </tr>`).join('')
+      : '<tr><td colspan="5" class="empty">Nenhum recebimento neste dia.</td></tr>';
+
+    const tbodyPendentes = document.getElementById('tbody-caixa-pendentes');
+    tbodyPendentes.innerHTML = pendentes.length
+      ? pendentes.map(p => `
+          <tr>
+            <td>${esc(p.paciente_nome)}</td>
+            <td>${esc(p.servico)}</td>
+            <td>${new Date(p.data_hora).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}</td>
+            <td><span class="badge badge-${esc(p.status)}">${esc(p.status)}</span></td>
+            <td>${p.valor ? 'R$ ' + esc(Number(p.valor).toFixed(2)) : '—'}</td>
+          </tr>`).join('')
+      : '<tr><td colspan="5" class="empty">Nenhuma pendência neste dia.</td></tr>';
   } catch (err) { console.error(err); }
 }
 

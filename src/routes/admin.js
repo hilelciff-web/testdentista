@@ -109,6 +109,101 @@ router.get('/pacientes', adminAuth, async (req, res) => {
 });
 
 // ============================================================
+// GET /api/admin/pacientes/:id — detalhe de um paciente +
+// histórico completo de agendamentos (para a tela de histórico).
+// Fica DEPOIS de /pacientes/buscar de propósito: o Express casa
+// rotas na ordem declarada, e ':id' casaria com a palavra "buscar"
+// se viesse primeiro.
+// ============================================================
+router.get('/pacientes/:id', adminAuth, async (req, res) => {
+  const { id } = req.params;
+  const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+  if (!uuidRegex.test(id)) {
+    return res.status(400).json({ erro: 'Paciente inválido.' });
+  }
+
+  try {
+    const { rows: pacienteRows } = await query(
+      `SELECT id, nome, sobrenome, email,
+              pgp_sym_decrypt(telefone, $2) AS telefone,
+              data_nasc, ativo, criado_em, cadastrado_por_admin
+       FROM pacientes WHERE id = $1`,
+      [id, process.env.TELEFONE_CRYPT_KEY]
+    );
+    if (!pacienteRows.length) return res.status(404).json({ erro: 'Paciente não encontrado.' });
+
+    const { rows: historico } = await query(
+      `SELECT a.id, a.servico, a.data_hora, a.status, a.observacoes,
+              a.valor, a.forma_pagamento, a.pago, a.pago_em,
+              d.nome AS dentista_nome
+       FROM agendamentos a
+       LEFT JOIN dentistas d ON d.id = a.dentista_id
+       WHERE a.paciente_id = $1
+       ORDER BY a.data_hora DESC`,
+      [id]
+    );
+
+    const totais = historico.reduce((acc, a) => {
+      acc.totalConsultas += 1;
+      if (a.status === 'realizado') acc.realizadas += 1;
+      if (a.status === 'cancelado') acc.canceladas += 1;
+      if (a.pago && a.valor) acc.totalPago += Number(a.valor);
+      if (!a.pago && a.valor && a.status !== 'cancelado') acc.totalPendente += Number(a.valor);
+      return acc;
+    }, { totalConsultas: 0, realizadas: 0, canceladas: 0, totalPago: 0, totalPendente: 0 });
+
+    res.json({ paciente: pacienteRows[0], historico, totais });
+  } catch (err) {
+    console.error('[ADMIN PACIENTE DETALHE]', err.message);
+    res.status(500).json({ erro: 'Erro ao buscar paciente.' });
+  }
+});
+
+// ============================================================
+// PATCH /api/admin/pacientes/:id — edita dados de cadastro
+// (nome, sobrenome, email, telefone). Não altera senha aqui.
+// ============================================================
+router.patch('/pacientes/:id', adminAuth, async (req, res) => {
+  const { id } = req.params;
+  const { nome, sobrenome, email, telefone } = req.body;
+
+  const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+  if (!uuidRegex.test(id)) {
+    return res.status(400).json({ erro: 'Paciente inválido.' });
+  }
+  if (!nome || !email) {
+    return res.status(400).json({ erro: 'Nome e email são obrigatórios.' });
+  }
+
+  try {
+    const { rows: emailEmUso } = await query(
+      'SELECT id FROM pacientes WHERE LOWER(email) = LOWER($1) AND id != $2',
+      [email, id]
+    );
+    if (emailEmUso.length) {
+      return res.status(409).json({ erro: 'Esse email já está em uso por outro paciente.' });
+    }
+
+    const { rows } = await query(
+      `UPDATE pacientes
+       SET nome = $1, sobrenome = $2, email = $3, telefone = pgp_sym_encrypt($4, $5)
+       WHERE id = $6
+       RETURNING id, nome, sobrenome, email`,
+      [nome, sobrenome || '', email, telefone || '', process.env.TELEFONE_CRYPT_KEY, id]
+    );
+
+    if (!rows.length) return res.status(404).json({ erro: 'Paciente não encontrado.' });
+
+    console.log(`[ADMIN] ${req.admin.email} editou cadastro do paciente ${id}`);
+
+    res.json({ mensagem: 'Cadastro atualizado.', paciente: rows[0] });
+  } catch (err) {
+    console.error('[ADMIN PACIENTE PATCH]', err.message);
+    res.status(500).json({ erro: 'Erro ao atualizar paciente.' });
+  }
+});
+
+// ============================================================
 // GET /api/admin/dentistas — todos os dentistas
 // ============================================================
 router.get('/dentistas', adminAuth, async (req, res) => {
@@ -365,6 +460,61 @@ router.patch('/agendamentos/:id/pagamento', adminAuth, async (req, res) => {
   } catch (err) {
     console.error('[ADMIN PAGAMENTO PATCH]', err.message);
     res.status(500).json({ erro: 'Erro ao atualizar pagamento.' });
+  }
+});
+
+// ============================================================
+// GET /api/admin/caixa?data=YYYY-MM-DD — fechamento de caixa do
+// dia: total recebido por forma de pagamento + lista de
+// pendências (consultas realizadas/confirmadas mas não pagas).
+// Sem "data" no query, usa o dia de hoje.
+// ============================================================
+router.get('/caixa', adminAuth, async (req, res) => {
+  const data = req.query.data || new Date().toISOString().split('T')[0];
+
+  try {
+    const { rows: recebidos } = await query(
+      `SELECT a.id, a.servico, a.valor, a.forma_pagamento, a.pago_em,
+              p.nome AS paciente_nome
+       FROM agendamentos a
+       JOIN pacientes p ON p.id = a.paciente_id
+       WHERE a.pago = TRUE AND DATE(a.pago_em) = $1::date
+       ORDER BY a.pago_em ASC`,
+      [data]
+    );
+
+    const porFormaPagamento = recebidos.reduce((acc, r) => {
+      const forma = r.forma_pagamento || 'não informado';
+      acc[forma] = (acc[forma] || 0) + Number(r.valor || 0);
+      return acc;
+    }, {});
+
+    const totalRecebido = recebidos.reduce((soma, r) => soma + Number(r.valor || 0), 0);
+
+    // Pendências: consultas do dia que já aconteceram (ou foram
+    // confirmadas) mas ainda não têm pagamento registrado.
+    const { rows: pendentes } = await query(
+      `SELECT a.id, a.servico, a.data_hora, a.status, a.valor,
+              p.nome AS paciente_nome
+       FROM agendamentos a
+       JOIN pacientes p ON p.id = a.paciente_id
+       WHERE DATE(a.data_hora) = $1::date
+         AND a.pago = FALSE
+         AND a.status IN ('confirmado', 'realizado')
+       ORDER BY a.data_hora ASC`,
+      [data]
+    );
+
+    res.json({
+      data,
+      totalRecebido,
+      porFormaPagamento,
+      recebidos,
+      pendentes,
+    });
+  } catch (err) {
+    console.error('[ADMIN CAIXA]', err.message);
+    res.status(500).json({ erro: 'Erro ao gerar fechamento de caixa.' });
   }
 });
 
