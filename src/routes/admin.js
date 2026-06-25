@@ -152,7 +152,19 @@ router.get('/pacientes/:id', adminAuth, async (req, res) => {
       return acc;
     }, { totalConsultas: 0, realizadas: 0, canceladas: 0, totalPago: 0, totalPendente: 0 });
 
-    res.json({ paciente: pacienteRows[0], historico, totais });
+    const { rows: planos } = await query(
+      `SELECT pt.id, pt.titulo, pt.valor_total, pt.status,
+              COUNT(a.id) AS total_etapas,
+              COUNT(a.id) FILTER (WHERE a.status = 'realizado') AS etapas_realizadas
+       FROM planos_tratamento pt
+       LEFT JOIN agendamentos a ON a.plano_tratamento_id = pt.id
+       WHERE pt.paciente_id = $1
+       GROUP BY pt.id
+       ORDER BY pt.criado_em DESC`,
+      [id]
+    );
+
+    res.json({ paciente: pacienteRows[0], historico, totais, planos });
   } catch (err) {
     console.error('[ADMIN PACIENTE DETALHE]', err.message);
     res.status(500).json({ erro: 'Erro ao buscar paciente.' });
@@ -515,6 +527,196 @@ router.get('/caixa', adminAuth, async (req, res) => {
   } catch (err) {
     console.error('[ADMIN CAIXA]', err.message);
     res.status(500).json({ erro: 'Erro ao gerar fechamento de caixa.' });
+  }
+});
+
+// ============================================================
+// GET /api/admin/planos?pacienteId=... — lista planos de
+// tratamento. Sem pacienteId, lista todos (visão geral).
+// ============================================================
+router.get('/planos', adminAuth, async (req, res) => {
+  const { pacienteId } = req.query;
+  try {
+    let sql = `
+      SELECT pt.id, pt.titulo, pt.valor_total, pt.status, pt.observacoes, pt.criado_em,
+             p.nome AS paciente_nome, p.id AS paciente_id,
+             COUNT(a.id) AS total_etapas,
+             COUNT(a.id) FILTER (WHERE a.status = 'realizado') AS etapas_realizadas,
+             COALESCE(SUM(a.valor) FILTER (WHERE a.pago = TRUE), 0) AS total_pago
+      FROM planos_tratamento pt
+      JOIN pacientes p ON p.id = pt.paciente_id
+      LEFT JOIN agendamentos a ON a.plano_tratamento_id = pt.id
+      WHERE 1=1`;
+    const params = [];
+
+    if (pacienteId) {
+      const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+      if (!uuidRegex.test(pacienteId)) {
+        return res.status(400).json({ erro: 'Paciente inválido.' });
+      }
+      params.push(pacienteId);
+      sql += ` AND pt.paciente_id = $${params.length}`;
+    }
+
+    sql += ' GROUP BY pt.id, p.nome, p.id ORDER BY pt.criado_em DESC';
+
+    const { rows } = await query(sql, params);
+    res.json({ planos: rows });
+  } catch (err) {
+    console.error('[ADMIN PLANOS GET]', err.message);
+    res.status(500).json({ erro: 'Erro ao buscar planos de tratamento.' });
+  }
+});
+
+// ============================================================
+// GET /api/admin/planos/:id — detalhe de um plano + todas as
+// etapas (agendamentos vinculados), em ordem cronológica.
+// ============================================================
+router.get('/planos/:id', adminAuth, async (req, res) => {
+  const { id } = req.params;
+  const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+  if (!uuidRegex.test(id)) return res.status(400).json({ erro: 'Plano inválido.' });
+
+  try {
+    const { rows: planoRows } = await query(
+      `SELECT pt.id, pt.titulo, pt.valor_total, pt.status, pt.observacoes, pt.criado_em,
+              p.nome AS paciente_nome, p.id AS paciente_id
+       FROM planos_tratamento pt
+       JOIN pacientes p ON p.id = pt.paciente_id
+       WHERE pt.id = $1`,
+      [id]
+    );
+    if (!planoRows.length) return res.status(404).json({ erro: 'Plano não encontrado.' });
+
+    const { rows: etapas } = await query(
+      `SELECT a.id, a.servico, a.data_hora, a.status, a.valor, a.forma_pagamento, a.pago,
+              d.nome AS dentista_nome
+       FROM agendamentos a
+       LEFT JOIN dentistas d ON d.id = a.dentista_id
+       WHERE a.plano_tratamento_id = $1
+       ORDER BY a.data_hora ASC`,
+      [id]
+    );
+
+    const totalPago = etapas.filter(e => e.pago).reduce((s, e) => s + Number(e.valor || 0), 0);
+
+    res.json({ plano: planoRows[0], etapas, totalPago });
+  } catch (err) {
+    console.error('[ADMIN PLANO DETALHE]', err.message);
+    res.status(500).json({ erro: 'Erro ao buscar plano de tratamento.' });
+  }
+});
+
+// ============================================================
+// POST /api/admin/planos — cria um novo plano de tratamento
+// (a "pasta" que vai agrupar as etapas/agendamentos).
+// ============================================================
+router.post('/planos', adminAuth, async (req, res) => {
+  const { pacienteId, titulo, valorTotal, observacoes } = req.body;
+
+  if (!pacienteId || !titulo) {
+    return res.status(400).json({ erro: 'Paciente e título são obrigatórios.' });
+  }
+  const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+  if (!uuidRegex.test(pacienteId)) return res.status(400).json({ erro: 'Paciente inválido.' });
+
+  const { rows: pacienteExiste } = await query('SELECT id FROM pacientes WHERE id = $1', [pacienteId]);
+  if (!pacienteExiste.length) return res.status(400).json({ erro: 'Paciente não encontrado.' });
+
+  try {
+    const { rows } = await query(
+      `INSERT INTO planos_tratamento (paciente_id, titulo, valor_total, observacoes)
+       VALUES ($1, $2, $3, $4)
+       RETURNING id, titulo, valor_total, status`,
+      [pacienteId, titulo, valorTotal || null, observacoes ? observacoes.substring(0, 500) : null]
+    );
+
+    console.log(`[ADMIN] ${req.admin.email} criou plano de tratamento "${titulo}"`);
+
+    res.status(201).json({ mensagem: 'Plano de tratamento criado.', plano: rows[0] });
+  } catch (err) {
+    console.error('[ADMIN PLANO POST]', err.message);
+    res.status(500).json({ erro: 'Erro ao criar plano de tratamento.' });
+  }
+});
+
+// ============================================================
+// POST /api/admin/planos/:id/etapas — adiciona uma etapa ao
+// plano. Cria um agendamento normal já vinculado ao plano, então
+// a etapa aparece na agenda/grade como qualquer outra consulta.
+// ============================================================
+router.post('/planos/:id/etapas', adminAuth, async (req, res) => {
+  const { id } = req.params;
+  const { servico, dentistaId, dataHora, valor, observacoes } = req.body;
+
+  const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+  if (!uuidRegex.test(id)) return res.status(400).json({ erro: 'Plano inválido.' });
+  if (!servico || !dataHora) return res.status(400).json({ erro: 'Serviço e data/hora são obrigatórios.' });
+  if (dentistaId && !uuidRegex.test(dentistaId)) return res.status(400).json({ erro: 'Dentista inválido.' });
+
+  try {
+    const { rows: planoRows } = await query('SELECT id, paciente_id FROM planos_tratamento WHERE id = $1', [id]);
+    if (!planoRows.length) return res.status(404).json({ erro: 'Plano não encontrado.' });
+    const plano = planoRows[0];
+
+    const { rows } = await query(
+      `INSERT INTO agendamentos
+         (paciente_id, dentista_id, servico, data_hora, observacoes, status, valor, plano_tratamento_id, criado_por_admin)
+       VALUES ($1, $2, $3, $4, $5, 'confirmado', $6, $7, TRUE)
+       RETURNING id, servico, data_hora, status, valor`,
+      [
+        plano.paciente_id,
+        dentistaId || null,
+        servico,
+        new Date(dataHora).toISOString(),
+        observacoes ? observacoes.substring(0, 500) : null,
+        valor || null,
+        id,
+      ]
+    );
+
+    console.log(`[ADMIN] ${req.admin.email} adicionou etapa ao plano ${id}`);
+
+    res.status(201).json({ mensagem: 'Etapa adicionada ao plano.', etapa: rows[0] });
+  } catch (err) {
+    console.error('[ADMIN ETAPA POST]', err.message);
+    res.status(500).json({ erro: 'Erro ao adicionar etapa.' });
+  }
+});
+
+// ============================================================
+// PATCH /api/admin/planos/:id — atualiza status/título/valor
+// do plano (ex: marcar como concluído ou cancelado).
+// ============================================================
+router.patch('/planos/:id', adminAuth, async (req, res) => {
+  const { id } = req.params;
+  const { titulo, valorTotal, status, observacoes } = req.body;
+
+  if (status && !['em_andamento', 'concluido', 'cancelado'].includes(status)) {
+    return res.status(400).json({ erro: 'Status inválido.' });
+  }
+
+  try {
+    const { rows } = await query(
+      `UPDATE planos_tratamento
+       SET titulo = COALESCE($1, titulo),
+           valor_total = COALESCE($2, valor_total),
+           status = COALESCE($3, status),
+           observacoes = COALESCE($4, observacoes),
+           atualizado_em = NOW()
+       WHERE id = $5
+       RETURNING id, titulo, valor_total, status`,
+      [titulo || null, valorTotal || null, status || null, observacoes || null, id]
+    );
+
+    if (!rows.length) return res.status(404).json({ erro: 'Plano não encontrado.' });
+
+    console.log(`[ADMIN] ${req.admin.email} atualizou plano ${id}`);
+
+    res.json({ mensagem: 'Plano atualizado.', plano: rows[0] });
+  } catch (err) {
+    console.error('[ADMIN PLANO PATCH]', err.message);
+    res.status(500).json({ erro: 'Erro ao atualizar plano.' });
   }
 });
 

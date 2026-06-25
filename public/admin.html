@@ -371,6 +371,26 @@
           <div class="stat-card"><div class="stat-n" id="pac-st-pendente">—</div><div class="stat-l">Pendente (R$)</div></div>
         </div>
 
+        <div class="sec-header">
+          <h2>Planos de tratamento</h2>
+          <button class="btn btn-outline btn-sm" id="pac-btn-novo-plano"><i class="ti ti-plus"></i> Novo plano</button>
+        </div>
+
+        <div id="form-novo-plano" class="card" style="display:none">
+          <div id="toast-novo-plano" class="toast"></div>
+          <div class="form-row">
+            <div class="form-group"><label class="form-label">Título do tratamento</label><input class="form-input" id="plano-titulo" placeholder="Ex: Implante dental — arcada superior" /></div>
+            <div class="form-group"><label class="form-label">Valor total previsto (R$)</label><input class="form-input" id="plano-valor-total" type="number" step="0.01" min="0" placeholder="0,00" /></div>
+          </div>
+          <div class="form-group"><label class="form-label">Observações (opcional)</label><input class="form-input" id="plano-observacoes" placeholder="Detalhes do tratamento…" /></div>
+          <div style="display:flex;gap:8px">
+            <button class="btn btn-primary btn-sm" id="plano-btn-salvar">Criar plano</button>
+            <button class="btn btn-outline btn-sm" id="plano-btn-cancelar">Cancelar</button>
+          </div>
+        </div>
+
+        <div id="lista-planos-paciente" style="margin-bottom:24px"></div>
+
         <div class="sec-header"><h2>Histórico de consultas</h2></div>
         <div class="table-wrap">
           <table>
@@ -1099,9 +1119,10 @@ async function abrirDetalhePaciente(id) {
   document.getElementById('pacientes-detalhe-modo').style.display = 'block';
   document.getElementById('pac-det-form').style.display = 'none';
   document.getElementById('pac-det-view').style.display = 'flex';
+  document.getElementById('form-novo-plano').style.display = 'none';
 
   try {
-    const { paciente, historico, totais } = await apiFetch(`/pacientes/${id}`);
+    const { paciente, historico, totais, planos } = await apiFetch(`/pacientes/${id}`);
     pacienteDetalheAtual = paciente;
 
     document.getElementById('pac-det-nome').textContent = `${paciente.nome} ${paciente.sobrenome || ''}`;
@@ -1112,6 +1133,8 @@ async function abrirDetalhePaciente(id) {
     document.getElementById('pac-st-realizadas').textContent = totais.realizadas;
     document.getElementById('pac-st-pago').textContent = totais.totalPago.toFixed(2);
     document.getElementById('pac-st-pendente').textContent = totais.totalPendente.toFixed(2);
+
+    renderizarListaPlanos(planos);
 
     const tbody = document.getElementById('tbody-pac-historico');
     if (!historico.length) {
@@ -1126,6 +1149,183 @@ async function abrirDetalhePaciente(id) {
           <td>${h.pago ? `<span class="badge badge-ativo">Pago${h.valor ? ' · R$ ' + esc(Number(h.valor).toFixed(2)) : ''}</span>` : (h.valor ? `Pendente · R$ ${esc(Number(h.valor).toFixed(2))}` : '—')}</td>
         </tr>`).join('');
     }
+  } catch (err) {
+    console.error(err);
+  }
+}
+
+// ============================================================
+// PLANOS DE TRATAMENTO
+// ============================================================
+const NOMES_STATUS_PLANO = { em_andamento: 'Em andamento', concluido: 'Concluído', cancelado: 'Cancelado' };
+
+function renderizarListaPlanos(planos) {
+  const container = document.getElementById('lista-planos-paciente');
+  if (!planos.length) {
+    container.innerHTML = '<p style="font-size:13px;color:var(--text3)">Nenhum plano de tratamento registrado.</p>';
+    return;
+  }
+  container.innerHTML = planos.map(p => {
+    const totalEtapas = Number(p.total_etapas || 0);
+    const realizadas = Number(p.etapas_realizadas || 0);
+    const pct = totalEtapas ? Math.round((realizadas / totalEtapas) * 100) : 0;
+    return `
+      <div class="card plano-card" data-id="${esc(p.id)}" style="cursor:pointer;margin-bottom:10px">
+        <div style="display:flex;justify-content:space-between;align-items:start">
+          <div>
+            <strong style="font-size:14px">${esc(p.titulo)}</strong><br>
+            <span style="font-size:12px;color:var(--text2)">${realizadas} de ${totalEtapas} etapas concluídas${p.valor_total ? ' · R$ ' + esc(Number(p.valor_total).toFixed(2)) + ' previsto' : ''}</span>
+          </div>
+          <span class="badge badge-${p.status === 'concluido' ? 'ativo' : (p.status === 'cancelado' ? 'inativo' : 'pendente')}">${esc(NOMES_STATUS_PLANO[p.status] || p.status)}</span>
+        </div>
+        <div style="background:var(--bg2);border-radius:6px;height:6px;margin-top:10px;overflow:hidden">
+          <div style="background:var(--green-dark);height:100%;width:${pct}%"></div>
+        </div>
+      </div>`;
+  }).join('');
+
+  container.querySelectorAll('.plano-card').forEach(card => {
+    card.addEventListener('click', () => abrirDetalhePlano(card.dataset.id));
+  });
+}
+
+document.getElementById('pac-btn-novo-plano').addEventListener('click', () => {
+  document.getElementById('plano-titulo').value = '';
+  document.getElementById('plano-valor-total').value = '';
+  document.getElementById('plano-observacoes').value = '';
+  document.getElementById('form-novo-plano').style.display = 'block';
+});
+document.getElementById('plano-btn-cancelar').addEventListener('click', () => {
+  document.getElementById('form-novo-plano').style.display = 'none';
+});
+document.getElementById('plano-btn-salvar').addEventListener('click', async () => {
+  const titulo = document.getElementById('plano-titulo').value.trim();
+  const valorTotal = document.getElementById('plano-valor-total').value;
+  const observacoes = document.getElementById('plano-observacoes').value.trim();
+
+  if (!titulo) {
+    mostrarToast('toast-novo-plano', 'error', 'O título do tratamento é obrigatório.');
+    return;
+  }
+  if (!pacienteDetalheAtual) return;
+
+  try {
+    await apiFetch('/planos', {
+      method: 'POST',
+      body: JSON.stringify({
+        pacienteId: pacienteDetalheAtual.id,
+        titulo,
+        valorTotal: valorTotal ? Number(valorTotal) : null,
+        observacoes,
+      }),
+    });
+    document.getElementById('form-novo-plano').style.display = 'none';
+    abrirDetalhePaciente(pacienteDetalheAtual.id);
+  } catch (err) {
+    mostrarToast('toast-novo-plano', 'error', err.message);
+  }
+});
+
+// ============================================================
+// DETALHE DO PLANO (modal com etapas)
+// ============================================================
+async function abrirDetalhePlano(planoId) {
+  try {
+    const { plano, etapas, totalPago } = await apiFetch(`/planos/${planoId}`);
+    const overlay = document.createElement('div');
+    overlay.className = 'modal-overlay';
+    overlay.innerHTML = `
+      <div class="modal-box" style="width:520px">
+        <h3>${esc(plano.titulo)}</h3>
+        <div id="toast-plano-modal" class="toast"></div>
+        <p style="font-size:13px;color:var(--text2);margin-bottom:4px"><strong>Paciente:</strong> ${esc(plano.paciente_nome)}</p>
+        <p style="font-size:13px;color:var(--text2);margin-bottom:4px"><strong>Valor total previsto:</strong> ${plano.valor_total ? 'R$ ' + esc(Number(plano.valor_total).toFixed(2)) : '—'}</p>
+        <p style="font-size:13px;color:var(--text2);margin-bottom:14px"><strong>Já pago:</strong> R$ ${esc(totalPago.toFixed(2))}</p>
+
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+          <strong style="font-size:13px">Etapas</strong>
+          <button class="btn btn-outline btn-sm" id="plano-btn-add-etapa">+ Adicionar etapa</button>
+        </div>
+
+        <div id="form-nova-etapa" style="display:none;margin-bottom:12px;padding:10px;background:var(--bg2);border-radius:8px">
+          <div class="form-row">
+            <div class="form-group"><label class="form-label">Serviço</label>
+              <select class="form-input" id="etapa-servico">
+                <option value="">Selecione…</option>
+                <option>Clareamento dental</option>
+                <option>Ortodontia — avaliação</option>
+                <option>Limpeza e prevenção</option>
+                <option>Implante dental</option>
+                <option>Facetas de porcelana</option>
+                <option>Odontopediatria</option>
+              </select>
+            </div>
+            <div class="form-group"><label class="form-label">Valor (R$)</label><input class="form-input" id="etapa-valor" type="number" step="0.01" min="0" /></div>
+          </div>
+          <div class="form-row">
+            <div class="form-group"><label class="form-label">Data</label><input class="form-input" id="etapa-data" type="date" /></div>
+            <div class="form-group"><label class="form-label">Horário</label><input class="form-input" id="etapa-hora" type="time" /></div>
+          </div>
+          <button class="btn btn-primary btn-sm" id="etapa-btn-salvar">Salvar etapa</button>
+        </div>
+
+        <div id="lista-etapas-plano"></div>
+
+        <div class="modal-actions">
+          <button class="btn btn-outline btn-sm" id="plano-btn-fechar">Fechar</button>
+        </div>
+      </div>`;
+    document.body.appendChild(overlay);
+
+    function renderizarEtapas(lista) {
+      const container = overlay.querySelector('#lista-etapas-plano');
+      if (!lista.length) {
+        container.innerHTML = '<p style="font-size:12px;color:var(--text3)">Nenhuma etapa adicionada ainda.</p>';
+        return;
+      }
+      container.innerHTML = lista.map(e => `
+        <div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--border);font-size:12px">
+          <div>
+            <strong>${esc(e.servico)}</strong><br>
+            <span style="color:var(--text2)">${fmtData(e.data_hora)}${e.dentista_nome ? ' · ' + esc(e.dentista_nome) : ''}</span>
+          </div>
+          <span class="badge badge-${esc(e.status)}">${esc(e.status)}</span>
+        </div>`).join('');
+    }
+    renderizarEtapas(etapas);
+
+    overlay.addEventListener('click', (e) => { if (e.target === overlay) overlay.remove(); });
+    overlay.querySelector('#plano-btn-fechar').addEventListener('click', () => overlay.remove());
+    overlay.querySelector('#plano-btn-add-etapa').addEventListener('click', () => {
+      overlay.querySelector('#form-nova-etapa').style.display = 'block';
+    });
+    overlay.querySelector('#etapa-btn-salvar').addEventListener('click', async () => {
+      const servico = overlay.querySelector('#etapa-servico').value;
+      const valor = overlay.querySelector('#etapa-valor').value;
+      const data = overlay.querySelector('#etapa-data').value;
+      const hora = overlay.querySelector('#etapa-hora').value;
+
+      if (!servico || !data || !hora) {
+        mostrarToast('toast-plano-modal', 'error', 'Serviço, data e horário são obrigatórios.');
+        return;
+      }
+
+      try {
+        await apiFetch(`/planos/${planoId}/etapas`, {
+          method: 'POST',
+          body: JSON.stringify({
+            servico,
+            dataHora: new Date(`${data}T${hora}:00`).toISOString(),
+            valor: valor ? Number(valor) : null,
+          }),
+        });
+        overlay.remove();
+        abrirDetalhePlano(planoId);
+        if (pacienteDetalheAtual) abrirDetalhePaciente(pacienteDetalheAtual.id);
+      } catch (err) {
+        mostrarToast('toast-plano-modal', 'error', err.message);
+      }
+    });
   } catch (err) {
     console.error(err);
   }
