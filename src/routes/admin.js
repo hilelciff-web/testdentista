@@ -16,7 +16,7 @@ router.get('/agendamentos', adminAuth, async (req, res) => {
              a.paciente_id, a.dentista_id,
              p.nome AS paciente_nome, p.email AS paciente_email,
              pgp_sym_decrypt(p.telefone, $1) AS telefone,
-             d.nome AS dentista_nome
+             d.nome AS dentista_nome, d.especialidade AS dentista_especialidade
       FROM agendamentos a
       JOIN pacientes p ON p.id = a.paciente_id
       LEFT JOIN dentistas d ON d.id = a.dentista_id
@@ -135,7 +135,7 @@ router.get('/pacientes/:id', adminAuth, async (req, res) => {
     const { rows: historico } = await query(
       `SELECT a.id, a.servico, a.data_hora, a.status, a.observacoes,
               a.valor, a.forma_pagamento, a.pago, a.pago_em,
-              d.nome AS dentista_nome
+              d.nome AS dentista_nome, d.especialidade AS dentista_especialidade
        FROM agendamentos a
        LEFT JOIN dentistas d ON d.id = a.dentista_id
        WHERE a.paciente_id = $1

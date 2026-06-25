@@ -157,7 +157,7 @@
       <button class="nav-tab" id="tab-agendamentos">Agendamentos</button>
       <button class="nav-tab" id="tab-pacientes">Pacientes</button>
       <button class="nav-tab" id="tab-caixa">Caixa</button>
-      <button class="nav-tab" id="tab-dentistas">Dentistas</button>
+      <button class="nav-tab" id="tab-dentistas">Equipe</button>
     </div>
     <div class="nav-right">
       <span id="nav-data"></span>
@@ -454,7 +454,7 @@
         </div>
         <div class="form-row">
           <div class="form-group"><label class="form-label">Profissão</label><input class="form-input" id="d-esp" placeholder="Ex: Dentista, Ortodontista, Higienista, Recepcionista…" /></div>
-          <div class="form-group"><label class="form-label">CRO / registro (opcional)</label><input class="form-input" id="d-cro" placeholder="CRO-00000" /></div>
+          <div class="form-group"><label class="form-label">Registro profissional (opcional)</label><input class="form-input" id="d-cro" placeholder="Ex: CRO-12345, CRM-6789…" /></div>
         </div>
         <div class="form-row">
           <div class="form-group"><label class="form-label">Email</label><input class="form-input" id="d-email" type="email" placeholder="email@clinica.com" /></div>
@@ -468,7 +468,7 @@
       </div>
       <div class="table-wrap">
         <table>
-          <thead><tr><th>Foto</th><th>Nome</th><th>Profissão</th><th>CRO</th><th>Status</th><th>Ação</th></tr></thead>
+          <thead><tr><th>Foto</th><th>Nome</th><th>Profissão</th><th>Registro</th><th>Status</th><th>Ação</th></tr></thead>
           <tbody id="tbody-dentistas"><tr><td colspan="6" class="empty">Carregando…</td></tr></tbody>
         </table>
       </div>
@@ -855,7 +855,7 @@ async function carregarAgendamentos() {
         <td><strong>${esc(a.paciente_nome)}</strong><br><span style="font-size:11px;color:var(--text3)">${esc(a.paciente_email)}</span></td>
         <td>${esc(a.servico)}</td>
         <td>${fmtData(a.data_hora)}</td>
-        <td>${esc(a.dentista_nome) || '—'}</td>
+        <td>${a.dentista_nome ? esc(a.dentista_nome) + (a.dentista_especialidade ? ` <span style="color:var(--text3);font-size:11px">(${esc(a.dentista_especialidade)})</span>` : '') : '—'}</td>
         <td><span class="badge badge-${esc(a.status)}">${esc(a.status)}</span></td>
         <td>
           ${a.pago
@@ -1148,7 +1148,7 @@ async function abrirDetalhePaciente(id) {
         <tr>
           <td>${fmtData(h.data_hora)}</td>
           <td>${esc(h.servico)}</td>
-          <td>${esc(h.dentista_nome) || '—'}</td>
+          <td>${h.dentista_nome ? esc(h.dentista_nome) + (h.dentista_especialidade ? ` <span style="color:var(--text3);font-size:11px">(${esc(h.dentista_especialidade)})</span>` : '') : '—'}</td>
           <td><span class="badge badge-${esc(h.status)}">${esc(h.status)}</span></td>
           <td>${h.pago ? `<span class="badge badge-ativo">Pago${h.valor ? ' · R$ ' + esc(Number(h.valor).toFixed(2)) : ''}</span>` : (h.valor ? `Pendente · R$ ${esc(Number(h.valor).toFixed(2))}` : '—')}</td>
         </tr>`).join('');
