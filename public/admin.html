@@ -44,8 +44,18 @@
     .btn-icon { width: 30px; height: 30px; border-radius: 6px; border: 1px solid var(--border); background: var(--bg); color: var(--text2); cursor: pointer; display: flex; align-items: center; justify-content: center; font-family: inherit; }
     .btn-icon:hover { background: var(--bg2); }
 
-    .agenda-grid-wrap { background: var(--bg); border: 1px solid var(--border); border-radius: var(--radius); box-shadow: var(--shadow); overflow-x: auto; }
-    .agenda-grid { display: grid; grid-template-columns: 64px repeat(6, 1fr); min-width: 920px; }
+    /* CARTÕES DE RESUMO DO DIA */
+    .resumo-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 18px; }
+    .resumo-card { background: var(--bg2); border-radius: var(--radius); padding: 14px 16px; }
+    .resumo-n { font-size: 22px; font-weight: 700; color: var(--text); letter-spacing: -0.02em; line-height: 1.1; }
+    .resumo-l { font-size: 11.5px; color: var(--text2); margin-top: 4px; line-height: 1.3; }
+    .resumo-card.resumo-warning { background: #FEF9C3; } .resumo-card.resumo-warning .resumo-n { color: #854F0B; }
+    .resumo-card.resumo-success { background: var(--green-light); } .resumo-card.resumo-success .resumo-n { color: var(--green-dark); }
+    .resumo-card.resumo-danger { background: var(--danger-bg); } .resumo-card.resumo-danger .resumo-n { color: #991B1B; }
+    @media (max-width: 700px) { .resumo-grid { grid-template-columns: repeat(2, 1fr); } }
+
+    .agenda-grid-wrap { background: var(--bg); border: 1px solid var(--border); border-radius: var(--radius); box-shadow: var(--shadow); overflow-x: auto; position: relative; }
+    .agenda-grid { display: grid; grid-template-columns: 64px repeat(6, 1fr); min-width: 920px; position: relative; }
     .agenda-cell { border-bottom: 1px solid var(--border); border-right: 1px solid var(--border); padding: 4px; min-height: 56px; position: relative; }
     .agenda-cell:last-child { border-right: none; }
     .agenda-head { background: var(--bg2); padding: 10px 6px; text-align: center; border-bottom: 1px solid var(--border); border-right: 1px solid var(--border); position: sticky; top: 0; }
@@ -56,14 +66,27 @@
     .agenda-hour { background: var(--bg2); padding: 6px; font-size: 11px; color: var(--text3); text-align: right; border-bottom: 1px solid var(--border); border-right: 1px solid var(--border); }
     .agenda-cell.vazia { cursor: pointer; }
     .agenda-cell.vazia:hover { background: var(--green-light); }
-    .agenda-bloco { background: var(--green-light); border: 1px solid var(--green-border); border-radius: 6px; padding: 4px 6px; font-size: 11px; cursor: pointer; overflow: hidden; line-height: 1.3; }
-    .agenda-bloco:hover { background: var(--green-border); }
-    .agenda-bloco.st-pendente { background: #FEF9C3; border-color: #FDE68A; }
-    .agenda-bloco.st-cancelado { background: var(--danger-bg); border-color: #fca5a5; text-decoration: line-through; opacity: .7; }
-    .agenda-bloco.st-realizado { background: #E0E7FF; border-color: #C7D2FE; }
+
+    /* Cor do bloco: prioridade é o status de pagamento (pago = verde forte,
+       pendente = amarelo) — cancelado e faltou têm cor própria, já que não
+       fazem sentido como "pendente de pagamento" no mesmo tom. */
+    .agenda-bloco { border-radius: 6px; padding: 4px 6px; font-size: 11px; cursor: pointer; overflow: hidden; line-height: 1.3; position: relative; background: var(--green-light); border: 1px solid var(--green-border); }
+    .agenda-bloco:hover { filter: brightness(0.97); }
+    .agenda-bloco.pg-pendente { background: #FEF9C3; border-color: #FDE68A; }
+    .agenda-bloco.pg-pago { background: #C0DD97; border-color: #97C459; }
+    .agenda-bloco.st-cancelado { background: var(--bg2); border-color: var(--border); text-decoration: line-through; opacity: .65; }
+    .agenda-bloco.st-faltou { background: var(--danger-bg); border-color: #fca5a5; }
     .agenda-bloco .ab-nome { font-weight: 700; display: block; }
     .agenda-bloco .ab-serv { color: var(--text2); display: block; }
-    .agenda-bloco.pago::after { content: '✓ pago'; display: block; font-size: 10px; color: var(--green-dark); font-weight: 600; }
+    .agenda-bloco .ab-tag { display: block; font-size: 9.5px; font-weight: 600; margin-top: 1px; }
+    .agenda-bloco .ab-tag.tag-pago { color: var(--green-dark); }
+    .agenda-bloco .ab-tag.tag-pendente { color: #854F0B; }
+    .agenda-bloco .btn-marcar-pago-rapido { position: absolute; top: 2px; right: 2px; width: 16px; height: 16px; border-radius: 50%; background: var(--bg); border: 1px solid var(--green-border); color: var(--green-dark); font-size: 10px; display: flex; align-items: center; justify-content: center; cursor: pointer; line-height: 1; }
+    .agenda-bloco .btn-marcar-pago-rapido:hover { background: var(--green-light); }
+
+    /* Linha indicando o horário atual, só visível na coluna de hoje quando dentro do range de horas exibido */
+    .agenda-linha-agora { position: absolute; left: 0; right: 0; height: 0; border-top: 2px solid var(--danger); z-index: 5; pointer-events: none; }
+    .agenda-linha-agora::before { content: ''; position: absolute; left: -4px; top: -4px; width: 8px; height: 8px; border-radius: 50%; background: var(--danger); }
 
     /* MODAL */
     .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,.4); display: flex; align-items: center; justify-content: center; z-index: 50; }
@@ -96,6 +119,7 @@
     .badge-confirmado { background: var(--green-light); color: var(--green-dark); }
     .badge-cancelado { background: var(--danger-bg); color: var(--danger); }
     .badge-realizado { background: #E0E7FF; color: #3730A3; }
+    .badge-faltou { background: var(--danger-bg); color: var(--danger); font-weight: 700; }
     .badge-ativo { background: var(--green-light); color: var(--green-dark); }
     .badge-inativo { background: var(--danger-bg); color: var(--danger); }
 
@@ -194,6 +218,13 @@
           </div>
           <button class="btn btn-primary" id="btn-novo-agendamento"><i class="ti ti-plus"></i> Novo agendamento</button>
         </div>
+      </div>
+
+      <div class="resumo-grid" id="resumo-dia-grid">
+        <div class="resumo-card"><div class="resumo-n" id="resumo-consultas-hoje">—</div><div class="resumo-l">Consultas hoje</div></div>
+        <div class="resumo-card resumo-warning"><div class="resumo-n" id="resumo-pendente-hoje">—</div><div class="resumo-l">Pendente de pagamento (hoje)</div></div>
+        <div class="resumo-card resumo-success"><div class="resumo-n" id="resumo-recebido-hoje">—</div><div class="resumo-l">Recebido hoje</div></div>
+        <div class="resumo-card resumo-danger"><div class="resumo-n" id="resumo-faltas-semana">—</div><div class="resumo-l">Faltas esta semana</div></div>
       </div>
 
       <!-- MODO GRADE -->
@@ -308,6 +339,7 @@
           <option value="confirmado">Confirmado</option>
           <option value="cancelado">Cancelado</option>
           <option value="realizado">Realizado</option>
+          <option value="faltou">Faltou</option>
         </select>
         <button class="btn btn-primary" id="btn-filtrar"><i class="ti ti-search"></i> Filtrar</button>
       </div>
@@ -699,6 +731,27 @@ async function carregarGradeSemana() {
     agendamentosSemanaCache = agendamentos;
     renderizarGrade();
   } catch (err) { console.error(err); }
+
+  carregarResumoDia();
+}
+
+// ============================================================
+// CARTÕES DE RESUMO DO DIA (topo da tela de Agenda)
+// ============================================================
+async function carregarResumoDia() {
+  try {
+    const r = await apiFetch('/resumo-dia');
+    document.getElementById('resumo-consultas-hoje').textContent = r.totalConsultasHoje;
+    document.getElementById('resumo-pendente-hoje').textContent = 'R$ ' + r.pendenteHoje.toFixed(2);
+    document.getElementById('resumo-recebido-hoje').textContent = 'R$ ' + r.recebidoHoje.toFixed(2);
+    document.getElementById('resumo-faltas-semana').textContent = r.faltasSemana;
+  } catch (err) { console.error(err); }
+}
+
+function classeBlocoAgendamento(a) {
+  if (a.status === 'cancelado') return 'st-cancelado';
+  if (a.status === 'faltou') return 'st-faltou';
+  return a.pago ? 'pg-pago' : 'pg-pendente';
 }
 
 function renderizarGrade() {
@@ -737,11 +790,17 @@ function renderizarGrade() {
       if (!ags.length) {
         html += `<div class="agenda-cell vazia" data-data="${ymd}" data-hora="${String(hora).padStart(2,'0')}:00"></div>`;
       } else {
-        html += `<div class="agenda-cell">` + ags.map(a => `
-          <div class="agenda-bloco st-${esc(a.status)} ${a.pago ? 'pago' : ''}" data-id="${esc(a.id)}">
+        html += `<div class="agenda-cell">` + ags.map(a => {
+          const classe = classeBlocoAgendamento(a);
+          const mostraAtalhoPagar = a.status !== 'cancelado' && a.status !== 'faltou' && !a.pago;
+          return `
+          <div class="agenda-bloco ${classe}" data-id="${esc(a.id)}">
+            ${mostraAtalhoPagar ? `<span class="btn-marcar-pago-rapido" data-id="${esc(a.id)}" title="Marcar como pago">✓</span>` : ''}
             <span class="ab-nome">${esc(a.paciente_nome)}</span>
             <span class="ab-serv">${esc(a.servico)}</span>
-          </div>`).join('') + `</div>`;
+            ${a.pago ? '<span class="ab-tag tag-pago">✓ pago</span>' : (a.status !== 'cancelado' && a.status !== 'faltou' ? '<span class="ab-tag tag-pendente">a receber</span>' : '')}
+          </div>`;
+        }).join('') + `</div>`;
       }
     });
   });
@@ -759,12 +818,79 @@ function renderizarGrade() {
     });
   });
 
+  grid.querySelectorAll('.btn-marcar-pago-rapido').forEach(btn => {
+    btn.addEventListener('click', async (e) => {
+      e.stopPropagation(); // não abrir o modal de detalhe ao clicar no atalho
+      try {
+        await apiFetch(`/agendamentos/${btn.dataset.id}/pagamento`, {
+          method: 'PATCH',
+          body: JSON.stringify({ pago: true }),
+        });
+        carregarGradeSemana();
+      } catch (err) { alert('Erro ao marcar pagamento: ' + err.message); }
+    });
+  });
+
   grid.querySelectorAll('.agenda-bloco').forEach(bloco => {
     bloco.addEventListener('click', () => {
       const ag = agendamentosSemanaCache.find(a => a.id === bloco.dataset.id);
       if (ag) abrirModalDetalhe(ag);
     });
   });
+
+  desenharLinhaAgora(dias);
+}
+
+// Desenha uma linha vermelha na grade marcando o horário atual,
+// só quando "hoje" está dentro da semana exibida e dentro do
+// range de horas mostrado (8h-17h). Importante: HORAS_GRADE tem
+// um intervalo de almoço (sem a linha das 12h), então a posição
+// é calculada pelo ÍNDICE do slot, não pela hora absoluta —
+// senão a linha ficaria deslocada para qualquer horário após o
+// almoço.
+function desenharLinhaAgora(dias) {
+  const existente = document.querySelector('.agenda-linha-agora');
+  if (existente) existente.remove();
+
+  const agora = new Date();
+  const hojeYmd = formatarDataYMD(agora);
+  const colunaIndex = dias.findIndex(d => formatarDataYMD(d) === hojeYmd);
+  if (colunaIndex === -1) return; // hoje não está na semana exibida
+
+  const horaAtual = agora.getHours();
+  const minutoFracao = agora.getMinutes() / 60;
+
+  let indiceSlot;
+  if (horaAtual < HORAS_GRADE[0]) return; // antes do expediente
+  if (horaAtual > HORAS_GRADE[HORAS_GRADE.length - 1]) return; // depois do expediente
+
+  const posicaoExata = HORAS_GRADE.indexOf(horaAtual);
+  if (posicaoExata !== -1) {
+    indiceSlot = posicaoExata + minutoFracao;
+  } else {
+    // Estamos num horário sem linha própria (ex: 12h, durante o almoço) —
+    // a linha "cola" no topo do próximo slot disponível.
+    indiceSlot = HORAS_GRADE.findIndex(h => h > horaAtual);
+    if (indiceSlot === -1) return;
+  }
+
+  const grid = document.getElementById('agenda-grid');
+  const wrap = document.querySelector('.agenda-grid-wrap');
+  const primeiraCelula = grid.querySelector('.agenda-hour');
+  if (!primeiraCelula) return;
+
+  const alturaLinha = primeiraCelula.offsetHeight;
+  const alturaCabecalho = grid.querySelector('.agenda-head').offsetHeight;
+  const posicaoVertical = alturaCabecalho + indiceSlot * alturaLinha;
+
+  const linha = document.createElement('div');
+  linha.className = 'agenda-linha-agora';
+  linha.style.top = posicaoVertical + 'px';
+  // Coluna 0 é a coluna de horas — a linha cobre só a coluna do dia de hoje.
+  linha.style.left = `calc(64px + ${colunaIndex} * (100% - 64px) / 6)`;
+  linha.style.right = `calc(${5 - colunaIndex} * (100% - 64px) / 6)`;
+  wrap.style.position = 'relative';
+  grid.appendChild(linha);
 }
 
 // ============================================================
@@ -792,6 +918,8 @@ function abrirModalDetalhe(ag) {
 
       <div class="modal-actions">
         <button class="btn btn-outline btn-sm" id="modal-btn-remarcar"><i class="ti ti-calendar-time"></i> Remarcar</button>
+        ${!ag.pago && ag.status !== 'cancelado' && ag.status !== 'faltou' ? `<button class="btn btn-outline btn-sm" id="modal-btn-pagar"><i class="ti ti-cash"></i> Marcar pago</button>` : ''}
+        ${ag.status !== 'cancelado' && ag.status !== 'faltou' ? `<button class="btn btn-outline btn-sm" id="modal-btn-faltou">Marcar falta</button>` : ''}
         ${ag.status !== 'cancelado' ? `<button class="btn btn-danger btn-sm" id="modal-btn-cancelar"><i class="ti ti-x"></i> Cancelar consulta</button>` : ''}
         <button class="btn btn-outline btn-sm" id="modal-btn-fechar">Fechar</button>
       </div>
@@ -820,6 +948,33 @@ function abrirModalDetalhe(ag) {
       mostrarToast('toast-modal', 'error', err.message);
     }
   });
+
+  const btnPagar = overlay.querySelector('#modal-btn-pagar');
+  if (btnPagar) {
+    btnPagar.addEventListener('click', async () => {
+      try {
+        await apiFetch(`/agendamentos/${ag.id}/pagamento`, { method: 'PATCH', body: JSON.stringify({ pago: true }) });
+        overlay.remove();
+        carregarGradeSemana();
+      } catch (err) {
+        mostrarToast('toast-modal', 'error', err.message);
+      }
+    });
+  }
+
+  const btnFaltou = overlay.querySelector('#modal-btn-faltou');
+  if (btnFaltou) {
+    btnFaltou.addEventListener('click', async () => {
+      if (!confirm('Marcar que o paciente faltou a esta consulta?')) return;
+      try {
+        await apiFetch(`/agendamentos/${ag.id}`, { method: 'PATCH', body: JSON.stringify({ status: 'faltou' }) });
+        overlay.remove();
+        carregarGradeSemana();
+      } catch (err) {
+        mostrarToast('toast-modal', 'error', err.message);
+      }
+    });
+  }
 
   const btnCancelar = overlay.querySelector('#modal-btn-cancelar');
   if (btnCancelar) {
@@ -868,6 +1023,7 @@ async function carregarAgendamentos() {
             <option value="confirmado" ${a.status==='confirmado'?'selected':''}>Confirmado</option>
             <option value="cancelado" ${a.status==='cancelado'?'selected':''}>Cancelado</option>
             <option value="realizado" ${a.status==='realizado'?'selected':''}>Realizado</option>
+            <option value="faltou" ${a.status==='faltou'?'selected':''}>Faltou</option>
           </select>
         </td>
       </tr>`).join('');

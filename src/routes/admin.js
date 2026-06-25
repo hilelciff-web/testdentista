@@ -66,7 +66,7 @@ router.get('/agendamentos', adminAuth, async (req, res) => {
 router.patch('/agendamentos/:id', adminAuth, async (req, res) => {
   const { id } = req.params;
   const { status } = req.body;
-  const statusValidos = ['pendente', 'confirmado', 'cancelado', 'realizado'];
+  const statusValidos = ['pendente', 'confirmado', 'cancelado', 'realizado', 'faltou'];
 
   if (!statusValidos.includes(status)) {
     return res.status(400).json({ erro: 'Status inválido.' });
@@ -514,6 +514,64 @@ router.patch('/agendamentos/:id/pagamento', adminAuth, async (req, res) => {
   } catch (err) {
     console.error('[ADMIN PAGAMENTO PATCH]', err.message);
     res.status(500).json({ erro: 'Erro ao atualizar pagamento.' });
+  }
+});
+
+// ============================================================
+// GET /api/admin/resumo-dia?data=YYYY-MM-DD — números rápidos
+// para os cartões no topo da tela de Agenda: quantas consultas
+// hoje, quanto falta receber hoje, quanto já entrou hoje, e
+// quantas faltas (no-show) na semana corrente. Sem "data", usa
+// o dia de hoje.
+// ============================================================
+router.get('/resumo-dia', adminAuth, async (req, res) => {
+  const data = req.query.data || new Date().toISOString().split('T')[0];
+
+  try {
+    const { rows: hojeRows } = await query(
+      `SELECT COUNT(*) AS total,
+              COALESCE(SUM(valor) FILTER (WHERE pago = FALSE AND status IN ('confirmado', 'realizado')), 0) AS pendente_hoje
+       FROM agendamentos
+       WHERE DATE(data_hora) = $1::date AND status != 'cancelado'`,
+      [data]
+    );
+
+    const { rows: recebidoRows } = await query(
+      `SELECT COALESCE(SUM(valor), 0) AS recebido_hoje
+       FROM agendamentos
+       WHERE pago = TRUE AND DATE(pago_em) = $1::date`,
+      [data]
+    );
+
+    // Faltas (no-show) na semana corrente. Calculado em JS (domingo a
+    // sábado) para usar a mesma convenção da grade semanal do frontend,
+    // em vez de date_trunc('week', ...) do Postgres, que usa segunda
+    // como início — misturar as duas convenções geraria contagem errada.
+    const dataRef = new Date(data + 'T12:00:00');
+    const domingo = new Date(dataRef);
+    domingo.setDate(domingo.getDate() - domingo.getDay());
+    const proximoDomingo = new Date(domingo);
+    proximoDomingo.setDate(proximoDomingo.getDate() + 7);
+
+    const { rows: faltasRows } = await query(
+      `SELECT COUNT(*) AS faltas_semana
+       FROM agendamentos
+       WHERE status = 'faltou'
+         AND data_hora >= $1::date
+         AND data_hora < $2::date`,
+      [domingo.toISOString().split('T')[0], proximoDomingo.toISOString().split('T')[0]]
+    );
+
+    res.json({
+      data,
+      totalConsultasHoje: Number(hojeRows[0].total),
+      pendenteHoje: Number(hojeRows[0].pendente_hoje),
+      recebidoHoje: Number(recebidoRows[0].recebido_hoje),
+      faltasSemana: Number(faltasRows[0].faltas_semana),
+    });
+  } catch (err) {
+    console.error('[ADMIN RESUMO DIA]', err.message);
+    res.status(500).json({ erro: 'Erro ao buscar resumo do dia.' });
   }
 });
 
