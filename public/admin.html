@@ -74,6 +74,7 @@
     .agenda-bloco:hover { filter: brightness(0.97); }
     .agenda-bloco.pg-pendente { background: #FEF9C3; border-color: #FDE68A; }
     .agenda-bloco.pg-pago { background: #C0DD97; border-color: #97C459; }
+    .agenda-bloco.pg-parcial { background: #FDEBC8; border-color: #F8C97D; }
     .agenda-bloco.st-cancelado { background: var(--bg2); border-color: var(--border); text-decoration: line-through; opacity: .65; }
     .agenda-bloco.st-faltou { background: var(--danger-bg); border-color: #fca5a5; }
     .agenda-bloco .ab-nome { font-weight: 700; display: block; }
@@ -81,6 +82,7 @@
     .agenda-bloco .ab-tag { display: block; font-size: 9.5px; font-weight: 600; margin-top: 1px; }
     .agenda-bloco .ab-tag.tag-pago { color: var(--green-dark); }
     .agenda-bloco .ab-tag.tag-pendente { color: #854F0B; }
+    .agenda-bloco .ab-tag.tag-parcial { color: #92400E; }
     .agenda-bloco .btn-marcar-pago-rapido { position: absolute; top: 2px; right: 2px; width: 16px; height: 16px; border-radius: 50%; background: var(--bg); border: 1px solid var(--green-border); color: var(--green-dark); font-size: 10px; display: flex; align-items: center; justify-content: center; cursor: pointer; line-height: 1; }
     .agenda-bloco .btn-marcar-pago-rapido:hover { background: var(--green-light); }
 
@@ -713,6 +715,20 @@ async function popularFiltroDentistaGrade() {
   } catch (err) { console.error(err); }
 }
 
+// Atualiza a visualização correta (Grade ou Lista) dependendo de
+// qual estiver visível no momento — usada por todas as ações do
+// modal de detalhe, já que o modal pode ser aberto a partir de
+// qualquer uma das duas telas.
+function atualizarAgendaAposAcao() {
+  const modoGradeVisivel = document.getElementById('modo-grade').style.display !== 'none';
+  if (modoGradeVisivel) {
+    carregarGradeSemana();
+  } else {
+    carregarAgendamentos();
+    carregarResumoDia();
+  }
+}
+
 async function carregarGradeSemana() {
   await popularFiltroDentistaGrade();
 
@@ -751,7 +767,10 @@ async function carregarResumoDia() {
 function classeBlocoAgendamento(a) {
   if (a.status === 'cancelado') return 'st-cancelado';
   if (a.status === 'faltou') return 'st-faltou';
-  return a.pago ? 'pg-pago' : 'pg-pendente';
+  if (a.pago) return 'pg-pago';
+  const totalPago = Number(a.total_pago || 0);
+  if (totalPago > 0) return 'pg-parcial';
+  return 'pg-pendente';
 }
 
 function renderizarGrade() {
@@ -792,13 +811,23 @@ function renderizarGrade() {
       } else {
         html += `<div class="agenda-cell">` + ags.map(a => {
           const classe = classeBlocoAgendamento(a);
+          const totalPago = Number(a.total_pago || 0);
+          const valorTotal = a.valor != null ? Number(a.valor) : null;
           const mostraAtalhoPagar = a.status !== 'cancelado' && a.status !== 'faltou' && !a.pago;
+          let tag = '';
+          if (a.pago) {
+            tag = '<span class="ab-tag tag-pago">✓ pago</span>';
+          } else if (totalPago > 0 && valorTotal != null) {
+            tag = `<span class="ab-tag tag-parcial">falta R$ ${esc((valorTotal - totalPago).toFixed(2))}</span>`;
+          } else if (a.status !== 'cancelado' && a.status !== 'faltou') {
+            tag = '<span class="ab-tag tag-pendente">a receber</span>';
+          }
           return `
           <div class="agenda-bloco ${classe}" data-id="${esc(a.id)}">
-            ${mostraAtalhoPagar ? `<span class="btn-marcar-pago-rapido" data-id="${esc(a.id)}" title="Marcar como pago">✓</span>` : ''}
+            ${mostraAtalhoPagar ? `<span class="btn-marcar-pago-rapido" data-id="${esc(a.id)}" title="Marcar como totalmente pago">✓</span>` : ''}
             <span class="ab-nome">${esc(a.paciente_nome)}</span>
             <span class="ab-serv">${esc(a.servico)}</span>
-            ${a.pago ? '<span class="ab-tag tag-pago">✓ pago</span>' : (a.status !== 'cancelado' && a.status !== 'faltou' ? '<span class="ab-tag tag-pendente">a receber</span>' : '')}
+            ${tag}
           </div>`;
         }).join('') + `</div>`;
       }
@@ -896,12 +925,12 @@ function desenharLinhaAgora(dias) {
 // ============================================================
 // MODAL DE DETALHE / REMARCAÇÃO
 // ============================================================
-function abrirModalDetalhe(ag) {
+async function abrirModalDetalhe(ag) {
   const dt = new Date(ag.data_hora);
   const overlay = document.createElement('div');
   overlay.className = 'modal-overlay';
   overlay.innerHTML = `
-    <div class="modal-box">
+    <div class="modal-box" style="width:440px">
       <h3>${esc(ag.paciente_nome)}</h3>
       <div id="toast-modal" class="toast"></div>
       <p style="font-size:13px;color:var(--text2);margin-bottom:4px"><strong>Serviço:</strong> ${esc(ag.servico)}</p>
@@ -916,9 +945,30 @@ function abrirModalDetalhe(ag) {
         <button class="btn btn-primary btn-sm" id="modal-confirmar-remarcar">Confirmar nova data</button>
       </div>
 
+      <!-- PAGAMENTOS -->
+      <div style="border-top:1px solid var(--border);padding-top:12px;margin-top:4px">
+        <strong style="font-size:13px">Pagamento</strong>
+        <div id="modal-pagamento-resumo" style="font-size:12px;color:var(--text2);margin:6px 0">Carregando…</div>
+        <div id="modal-pagamento-lista" style="margin-bottom:8px"></div>
+
+        <div id="modal-form-novo-pagamento" style="display:none;background:var(--bg2);border-radius:8px;padding:10px;margin-bottom:8px">
+          <div class="form-row">
+            <div class="form-group"><label class="form-label">Valor recebido (R$)</label><input class="form-input" id="modal-pgto-valor" type="number" step="0.01" min="0.01" /></div>
+            <div class="form-group"><label class="form-label">Forma</label>
+              <select class="form-input" id="modal-pgto-forma">
+                <option value="dinheiro">Dinheiro</option>
+                <option value="pix">Pix</option>
+                <option value="cartao">Cartão</option>
+              </select>
+            </div>
+          </div>
+          <button class="btn btn-primary btn-sm" id="modal-pgto-confirmar">Registrar pagamento</button>
+        </div>
+        <button class="btn btn-outline btn-sm" id="modal-btn-add-pagamento"><i class="ti ti-cash"></i> Registrar pagamento</button>
+      </div>
+
       <div class="modal-actions">
         <button class="btn btn-outline btn-sm" id="modal-btn-remarcar"><i class="ti ti-calendar-time"></i> Remarcar</button>
-        ${!ag.pago && ag.status !== 'cancelado' && ag.status !== 'faltou' ? `<button class="btn btn-outline btn-sm" id="modal-btn-pagar"><i class="ti ti-cash"></i> Marcar pago</button>` : ''}
         ${ag.status !== 'cancelado' && ag.status !== 'faltou' ? `<button class="btn btn-outline btn-sm" id="modal-btn-faltou">Marcar falta</button>` : ''}
         ${ag.status !== 'cancelado' ? `<button class="btn btn-danger btn-sm" id="modal-btn-cancelar"><i class="ti ti-x"></i> Cancelar consulta</button>` : ''}
         <button class="btn btn-outline btn-sm" id="modal-btn-fechar">Fechar</button>
@@ -943,24 +993,75 @@ function abrirModalDetalhe(ag) {
         body: JSON.stringify({ dataHora: new Date(`${novaData}T${novaHora}:00`).toISOString() }),
       });
       overlay.remove();
-      carregarGradeSemana();
+      atualizarAgendaAposAcao();
     } catch (err) {
       mostrarToast('toast-modal', 'error', err.message);
     }
   });
 
-  const btnPagar = overlay.querySelector('#modal-btn-pagar');
-  if (btnPagar) {
-    btnPagar.addEventListener('click', async () => {
-      try {
-        await apiFetch(`/agendamentos/${ag.id}/pagamento`, { method: 'PATCH', body: JSON.stringify({ pago: true }) });
-        overlay.remove();
-        carregarGradeSemana();
-      } catch (err) {
-        mostrarToast('toast-modal', 'error', err.message);
+  // ---- Pagamentos ----
+  async function carregarPagamentosModal() {
+    try {
+      const { pagamentos, valorTotal, totalPago, faltaPagar } = await apiFetch(`/agendamentos/${ag.id}/pagamentos`);
+
+      const resumoEl = overlay.querySelector('#modal-pagamento-resumo');
+      if (valorTotal == null) {
+        resumoEl.innerHTML = `Nenhum valor definido para esta consulta ainda. Total já recebido: <strong>R$ ${totalPago.toFixed(2)}</strong>`;
+      } else if (faltaPagar > 0) {
+        resumoEl.innerHTML = `Valor da consulta: <strong>R$ ${valorTotal.toFixed(2)}</strong> · Pago: <strong style="color:var(--green-dark)">R$ ${totalPago.toFixed(2)}</strong> · <strong style="color:#854F0B">Falta: R$ ${faltaPagar.toFixed(2)}</strong>`;
+      } else {
+        resumoEl.innerHTML = `Valor da consulta: <strong>R$ ${valorTotal.toFixed(2)}</strong> · <span style="color:var(--green-dark);font-weight:600">✓ totalmente pago</span>`;
       }
-    });
+
+      const listaEl = overlay.querySelector('#modal-pagamento-lista');
+      listaEl.innerHTML = pagamentos.length
+        ? pagamentos.map(p => `
+            <div style="display:flex;justify-content:space-between;align-items:center;font-size:12px;padding:4px 0;border-bottom:1px solid var(--border)">
+              <span>R$ ${esc(Number(p.valor).toFixed(2))} · ${esc(NOMES_FORMA_PAGAMENTO[p.forma_pagamento] || p.forma_pagamento)} · ${new Date(p.pago_em).toLocaleDateString('pt-BR')}</span>
+              <button class="btn-icon btn-remover-pgto" data-id="${esc(p.id)}" title="Remover" style="width:22px;height:22px"><i class="ti ti-trash" style="font-size:12px"></i></button>
+            </div>`).join('')
+        : '<p style="font-size:12px;color:var(--text3)">Nenhum pagamento registrado ainda.</p>';
+
+      listaEl.querySelectorAll('.btn-remover-pgto').forEach(btn => {
+        btn.addEventListener('click', async () => {
+          if (!confirm('Remover este pagamento?')) return;
+          try {
+            await apiFetch(`/pagamentos/${btn.dataset.id}`, { method: 'DELETE' });
+            carregarPagamentosModal();
+            atualizarAgendaAposAcao();
+          } catch (err) { mostrarToast('toast-modal', 'error', err.message); }
+        });
+      });
+    } catch (err) {
+      console.error(err);
+    }
   }
+  carregarPagamentosModal();
+
+  overlay.querySelector('#modal-btn-add-pagamento').addEventListener('click', () => {
+    overlay.querySelector('#modal-form-novo-pagamento').style.display = 'block';
+  });
+
+  overlay.querySelector('#modal-pgto-confirmar').addEventListener('click', async () => {
+    const valor = overlay.querySelector('#modal-pgto-valor').value;
+    const forma = overlay.querySelector('#modal-pgto-forma').value;
+    if (!valor || Number(valor) <= 0) {
+      mostrarToast('toast-modal', 'error', 'Informe um valor de pagamento válido.');
+      return;
+    }
+    try {
+      await apiFetch(`/agendamentos/${ag.id}/pagamentos`, {
+        method: 'POST',
+        body: JSON.stringify({ valor: Number(valor), formaPagamento: forma }),
+      });
+      overlay.querySelector('#modal-pgto-valor').value = '';
+      overlay.querySelector('#modal-form-novo-pagamento').style.display = 'none';
+      carregarPagamentosModal();
+      atualizarAgendaAposAcao();
+    } catch (err) {
+      mostrarToast('toast-modal', 'error', err.message);
+    }
+  });
 
   const btnFaltou = overlay.querySelector('#modal-btn-faltou');
   if (btnFaltou) {
@@ -969,7 +1070,7 @@ function abrirModalDetalhe(ag) {
       try {
         await apiFetch(`/agendamentos/${ag.id}`, { method: 'PATCH', body: JSON.stringify({ status: 'faltou' }) });
         overlay.remove();
-        carregarGradeSemana();
+        atualizarAgendaAposAcao();
       } catch (err) {
         mostrarToast('toast-modal', 'error', err.message);
       }
@@ -983,7 +1084,7 @@ function abrirModalDetalhe(ag) {
       try {
         await apiFetch(`/agendamentos/${ag.id}`, { method: 'PATCH', body: JSON.stringify({ status: 'cancelado' }) });
         overlay.remove();
-        carregarGradeSemana();
+        atualizarAgendaAposAcao();
       } catch (err) {
         mostrarToast('toast-modal', 'error', err.message);
       }
@@ -1005,18 +1106,25 @@ async function carregarAgendamentos() {
     const { agendamentos } = await apiFetch(path);
     const tbody = document.getElementById('tbody-agendamentos');
     if (!agendamentos.length) { tbody.innerHTML = '<tr><td colspan="7" class="empty">Nenhum agendamento encontrado.</td></tr>'; return; }
-    tbody.innerHTML = agendamentos.map(a => `
+    tbody.innerHTML = agendamentos.map(a => {
+      const totalPago = Number(a.total_pago || 0);
+      const valorTotal = a.valor != null ? Number(a.valor) : null;
+      let pagamentoCel;
+      if (a.pago) {
+        pagamentoCel = `<span class="badge badge-ativo">Pago${valorTotal ? ' · R$ ' + esc(valorTotal.toFixed(2)) : ''}</span>`;
+      } else if (totalPago > 0 && valorTotal != null) {
+        pagamentoCel = `<button class="btn btn-sm btn-outline btn-abrir-pagamento" data-id="${esc(a.id)}" style="color:#92400E;border-color:#F8C97D">Falta R$ ${esc((valorTotal - totalPago).toFixed(2))}</button>`;
+      } else {
+        pagamentoCel = `<button class="btn btn-sm btn-outline btn-abrir-pagamento" data-id="${esc(a.id)}">Registrar pagamento</button>`;
+      }
+      return `
       <tr>
         <td><strong>${esc(a.paciente_nome)}</strong><br><span style="font-size:11px;color:var(--text3)">${esc(a.paciente_email)}</span></td>
         <td>${esc(a.servico)}</td>
         <td>${fmtData(a.data_hora)}</td>
         <td>${a.dentista_nome ? esc(a.dentista_nome) + (a.dentista_especialidade ? ` <span style="color:var(--text3);font-size:11px">(${esc(a.dentista_especialidade)})</span>` : '') : '—'}</td>
         <td><span class="badge badge-${esc(a.status)}">${esc(a.status)}</span></td>
-        <td>
-          ${a.pago
-            ? `<span class="badge badge-ativo">Pago${a.valor ? ' · R$ ' + esc(Number(a.valor).toFixed(2)) : ''}</span>`
-            : `<button class="btn btn-sm btn-outline btn-marcar-pago" data-id="${esc(a.id)}" data-valor="${a.valor != null ? esc(a.valor) : ''}" data-forma="${esc(a.forma_pagamento) || ''}">Marcar pago</button>`}
-        </td>
+        <td>${pagamentoCel}</td>
         <td>
           <select class="select-status" data-id="${esc(a.id)}">
             <option value="pendente" ${a.status==='pendente'?'selected':''}>Pendente</option>
@@ -1026,23 +1134,13 @@ async function carregarAgendamentos() {
             <option value="faltou" ${a.status==='faltou'?'selected':''}>Faltou</option>
           </select>
         </td>
-      </tr>`).join('');
+      </tr>`;
+    }).join('');
 
-    tbody.querySelectorAll('.btn-marcar-pago').forEach(btn => {
-      btn.addEventListener('click', async () => {
-        const valorAtual = btn.dataset.valor || '';
-        const valor = prompt('Valor da consulta (R$):', valorAtual);
-        if (valor === null) return; // cancelou o prompt
-        const forma = prompt('Forma de pagamento (dinheiro, pix ou cartao):', btn.dataset.forma || 'pix');
-        if (forma === null) return;
-        if (!['dinheiro', 'pix', 'cartao'].includes(forma)) { alert('Forma de pagamento inválida. Use: dinheiro, pix ou cartao.'); return; }
-        try {
-          await apiFetch(`/agendamentos/${btn.dataset.id}/pagamento`, {
-            method: 'PATCH',
-            body: JSON.stringify({ valor: valor ? Number(valor) : null, formaPagamento: forma, pago: true }),
-          });
-          carregarAgendamentos();
-        } catch (err) { alert('Erro: ' + err.message); }
+    tbody.querySelectorAll('.btn-abrir-pagamento').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const ag = agendamentos.find(a => a.id === btn.dataset.id);
+        if (ag) abrirModalDetalhe(ag);
       });
     });
 
@@ -1300,14 +1398,35 @@ async function abrirDetalhePaciente(id) {
     if (!historico.length) {
       tbody.innerHTML = '<tr><td colspan="5" class="empty">Nenhuma consulta registrada.</td></tr>';
     } else {
-      tbody.innerHTML = historico.map(h => `
-        <tr>
+      tbody.innerHTML = historico.map(h => {
+        const totalPago = Number(h.total_pago || 0);
+        const valorTotal = h.valor != null ? Number(h.valor) : null;
+        let pagamentoCel;
+        if (h.pago) {
+          pagamentoCel = `<span class="badge badge-ativo">Pago${valorTotal ? ' · R$ ' + esc(valorTotal.toFixed(2)) : ''}</span>`;
+        } else if (totalPago > 0 && valorTotal != null) {
+          pagamentoCel = `<span style="color:#92400E;font-weight:600">Falta R$ ${esc((valorTotal - totalPago).toFixed(2))}</span> <span style="color:var(--text3);font-size:11px">(de R$ ${esc(valorTotal.toFixed(2))})</span>`;
+        } else if (valorTotal != null) {
+          pagamentoCel = `Pendente · R$ ${esc(valorTotal.toFixed(2))}`;
+        } else {
+          pagamentoCel = '—';
+        }
+        return `
+        <tr class="linha-historico-pgto" data-id="${esc(h.id)}" style="cursor:pointer">
           <td>${fmtData(h.data_hora)}</td>
           <td>${esc(h.servico)}</td>
           <td>${h.dentista_nome ? esc(h.dentista_nome) + (h.dentista_especialidade ? ` <span style="color:var(--text3);font-size:11px">(${esc(h.dentista_especialidade)})</span>` : '') : '—'}</td>
           <td><span class="badge badge-${esc(h.status)}">${esc(h.status)}</span></td>
-          <td>${h.pago ? `<span class="badge badge-ativo">Pago${h.valor ? ' · R$ ' + esc(Number(h.valor).toFixed(2)) : ''}</span>` : (h.valor ? `Pendente · R$ ${esc(Number(h.valor).toFixed(2))}` : '—')}</td>
-        </tr>`).join('');
+          <td>${pagamentoCel}</td>
+        </tr>`;
+      }).join('');
+
+      tbody.querySelectorAll('.linha-historico-pgto').forEach(tr => {
+        tr.addEventListener('click', () => {
+          const ag = historico.find(h => h.id === tr.dataset.id);
+          if (ag) abrirModalDetalhe({ ...ag, paciente_nome: `${paciente.nome} ${paciente.sobrenome || ''}`.trim() });
+        });
+      });
     }
   } catch (err) {
     console.error(err);

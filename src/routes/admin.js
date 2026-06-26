@@ -14,6 +14,7 @@ router.get('/agendamentos', adminAuth, async (req, res) => {
       SELECT a.id, a.servico, a.data_hora, a.status, a.observacoes,
              a.valor, a.forma_pagamento, a.pago, a.pago_em,
              a.paciente_id, a.dentista_id,
+             COALESCE((SELECT SUM(valor) FROM pagamentos WHERE agendamento_id = a.id), 0) AS total_pago,
              p.nome AS paciente_nome, p.email AS paciente_email,
              pgp_sym_decrypt(p.telefone, $1) AS telefone,
              d.nome AS dentista_nome, d.especialidade AS dentista_especialidade
@@ -135,6 +136,7 @@ router.get('/pacientes/:id', adminAuth, async (req, res) => {
     const { rows: historico } = await query(
       `SELECT a.id, a.servico, a.data_hora, a.status, a.observacoes,
               a.valor, a.forma_pagamento, a.pago, a.pago_em,
+              COALESCE((SELECT SUM(valor) FROM pagamentos WHERE agendamento_id = a.id), 0) AS total_pago,
               d.nome AS dentista_nome, d.especialidade AS dentista_especialidade
        FROM agendamentos a
        LEFT JOIN dentistas d ON d.id = a.dentista_id
@@ -147,8 +149,12 @@ router.get('/pacientes/:id', adminAuth, async (req, res) => {
       acc.totalConsultas += 1;
       if (a.status === 'realizado') acc.realizadas += 1;
       if (a.status === 'cancelado') acc.canceladas += 1;
-      if (a.pago && a.valor) acc.totalPago += Number(a.valor);
-      if (!a.pago && a.valor && a.status !== 'cancelado') acc.totalPendente += Number(a.valor);
+      const totalPagoConsulta = Number(a.total_pago || 0);
+      acc.totalPago += totalPagoConsulta;
+      if (a.valor != null && a.status !== 'cancelado') {
+        const falta = Math.max(0, Number(a.valor) - totalPagoConsulta);
+        acc.totalPendente += falta;
+      }
       return acc;
     }, { totalConsultas: 0, realizadas: 0, canceladas: 0, totalPago: 0, totalPendente: 0 });
 
@@ -482,8 +488,140 @@ router.patch('/agendamentos/:id/remarcar', adminAuth, async (req, res) => {
 });
 
 // ============================================================
+// Helper: recalcula os campos derivados em agendamentos (pago,
+// pago_em, forma_pagamento) a partir da soma real de pagamentos.
+// Mantém compatibilidade com código antigo que ainda lê esses
+// campos booleanos, mesmo com o novo sistema de pagamento parcial.
+// ============================================================
+async function recalcularStatusPagamento(agendamentoId) {
+  const { rows: agRows } = await query('SELECT valor FROM agendamentos WHERE id = $1', [agendamentoId]);
+  if (!agRows.length) return null;
+  const valorTotal = agRows[0].valor;
+
+  const { rows: somaRows } = await query(
+    'SELECT COALESCE(SUM(valor), 0) AS total_pago, MAX(pago_em) AS ultimo_pagamento, MAX(forma_pagamento) AS ultima_forma FROM pagamentos WHERE agendamento_id = $1',
+    [agendamentoId]
+  );
+  const totalPago = Number(somaRows[0].total_pago);
+  const pagoCompleto = valorTotal != null && totalPago >= Number(valorTotal);
+
+  await query(
+    `UPDATE agendamentos
+     SET pago = $1, pago_em = $2, forma_pagamento = $3, atualizado_em = NOW()
+     WHERE id = $4`,
+    [pagoCompleto, totalPago > 0 ? somaRows[0].ultimo_pagamento : null, somaRows[0].ultima_forma, agendamentoId]
+  );
+
+  return {
+    valorTotal: valorTotal != null ? Number(valorTotal) : null,
+    totalPago,
+    faltaPagar: valorTotal != null ? Math.max(0, Number(valorTotal) - totalPago) : null,
+    pagoCompleto,
+  };
+}
+
+// ============================================================
+// GET /api/admin/agendamentos/:id/pagamentos — lista todos os
+// pagamentos (parciais ou totais) já registrados para a consulta,
+// e o resumo de quanto falta pagar.
+// ============================================================
+router.get('/agendamentos/:id/pagamentos', adminAuth, async (req, res) => {
+  const { id } = req.params;
+  const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+  if (!uuidRegex.test(id)) return res.status(400).json({ erro: 'Agendamento inválido.' });
+
+  try {
+    const { rows: agRows } = await query('SELECT id, servico, valor FROM agendamentos WHERE id = $1', [id]);
+    if (!agRows.length) return res.status(404).json({ erro: 'Agendamento não encontrado.' });
+
+    const { rows: pagamentos } = await query(
+      'SELECT id, valor, forma_pagamento, pago_em, observacao FROM pagamentos WHERE agendamento_id = $1 ORDER BY pago_em ASC',
+      [id]
+    );
+
+    const valorTotal = agRows[0].valor != null ? Number(agRows[0].valor) : null;
+    const totalPago = pagamentos.reduce((s, p) => s + Number(p.valor), 0);
+    const faltaPagar = valorTotal != null ? Math.max(0, valorTotal - totalPago) : null;
+
+    res.json({
+      agendamento: agRows[0],
+      pagamentos,
+      valorTotal,
+      totalPago,
+      faltaPagar,
+    });
+  } catch (err) {
+    console.error('[ADMIN PAGAMENTOS GET]', err.message);
+    res.status(500).json({ erro: 'Erro ao buscar pagamentos.' });
+  }
+});
+
+// ============================================================
+// POST /api/admin/agendamentos/:id/pagamentos — registra um novo
+// pagamento (parcial ou que completa o total) para a consulta.
+// ============================================================
+router.post('/agendamentos/:id/pagamentos', adminAuth, async (req, res) => {
+  const { id } = req.params;
+  const { valor, formaPagamento, observacao } = req.body;
+
+  const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+  if (!uuidRegex.test(id)) return res.status(400).json({ erro: 'Agendamento inválido.' });
+  if (!valor || Number(valor) <= 0) return res.status(400).json({ erro: 'Informe um valor de pagamento maior que zero.' });
+  if (!formaPagamento || !['dinheiro', 'pix', 'cartao'].includes(formaPagamento)) {
+    return res.status(400).json({ erro: 'Forma de pagamento inválida.' });
+  }
+
+  try {
+    const { rows: agRows } = await query('SELECT id, valor FROM agendamentos WHERE id = $1', [id]);
+    if (!agRows.length) return res.status(404).json({ erro: 'Agendamento não encontrado.' });
+
+    await query(
+      `INSERT INTO pagamentos (agendamento_id, valor, forma_pagamento, observacao)
+       VALUES ($1, $2, $3, $4)`,
+      [id, Number(valor), formaPagamento, observacao ? observacao.substring(0, 300) : null]
+    );
+
+    const resumo = await recalcularStatusPagamento(id);
+
+    console.log(`[ADMIN] ${req.admin.email} registrou pagamento de R$${valor} no agendamento ${id}`);
+
+    res.status(201).json({ mensagem: 'Pagamento registrado.', resumo });
+  } catch (err) {
+    console.error('[ADMIN PAGAMENTO POST]', err.message);
+    res.status(500).json({ erro: 'Erro ao registrar pagamento.' });
+  }
+});
+
+// ============================================================
+// DELETE /api/admin/pagamentos/:id — remove um pagamento
+// registrado por engano, recalculando o status da consulta.
+// ============================================================
+router.delete('/pagamentos/:id', adminAuth, async (req, res) => {
+  const { id } = req.params;
+  const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+  if (!uuidRegex.test(id)) return res.status(400).json({ erro: 'Pagamento inválido.' });
+
+  try {
+    const { rows } = await query('DELETE FROM pagamentos WHERE id = $1 RETURNING agendamento_id', [id]);
+    if (!rows.length) return res.status(404).json({ erro: 'Pagamento não encontrado.' });
+
+    const resumo = await recalcularStatusPagamento(rows[0].agendamento_id);
+
+    console.log(`[ADMIN] ${req.admin.email} removeu pagamento ${id}`);
+
+    res.json({ mensagem: 'Pagamento removido.', resumo });
+  } catch (err) {
+    console.error('[ADMIN PAGAMENTO DELETE]', err.message);
+    res.status(500).json({ erro: 'Erro ao remover pagamento.' });
+  }
+});
+
+// ============================================================
 // PATCH /api/admin/agendamentos/:id/pagamento — marca ou
 // atualiza o pagamento de um agendamento já existente.
+// (rota antiga, mantida por compatibilidade com o atalho rápido
+// "✓ pago" da grade — marca como totalmente pago de uma vez,
+// criando um pagamento único equivalente ao valor total)
 // ============================================================
 router.patch('/agendamentos/:id/pagamento', adminAuth, async (req, res) => {
   const { id } = req.params;
@@ -494,23 +632,33 @@ router.patch('/agendamentos/:id/pagamento', adminAuth, async (req, res) => {
   }
 
   try {
-    const { rows } = await query(
-      `UPDATE agendamentos
-       SET valor = COALESCE($1, valor),
-           forma_pagamento = COALESCE($2, forma_pagamento),
-           pago = $3,
-           pago_em = CASE WHEN $3 THEN NOW() ELSE NULL END,
-           atualizado_em = NOW()
-       WHERE id = $4
-       RETURNING id, valor, forma_pagamento, pago, pago_em`,
-      [valor || null, formaPagamento || null, !!pago, id]
-    );
+    const { rows: agRows } = await query('SELECT id, valor FROM agendamentos WHERE id = $1', [id]);
+    if (!agRows.length) return res.status(404).json({ erro: 'Agendamento não encontrado.' });
 
-    if (!rows.length) return res.status(404).json({ erro: 'Agendamento não encontrado.' });
+    // Se um valor de consulta foi enviado e ainda não havia um definido,
+    // grava o valor total da consulta antes de registrar o pagamento.
+    if (valor && agRows[0].valor == null) {
+      await query('UPDATE agendamentos SET valor = $1 WHERE id = $2', [Number(valor), id]);
+    }
+
+    if (pago) {
+      // Atalho "marcar tudo como pago": registra um pagamento único
+      // pelo valor total da consulta (o que já estiver definido).
+      const { rows: agAtual } = await query('SELECT valor FROM agendamentos WHERE id = $1', [id]);
+      const valorAPagar = agAtual[0].valor != null ? Number(agAtual[0].valor) : Number(valor || 0);
+      if (valorAPagar > 0) {
+        await query(
+          `INSERT INTO pagamentos (agendamento_id, valor, forma_pagamento) VALUES ($1, $2, $3)`,
+          [id, valorAPagar, formaPagamento || 'dinheiro']
+        );
+      }
+    }
+
+    const resumo = await recalcularStatusPagamento(id);
 
     console.log(`[ADMIN] ${req.admin.email} atualizou pagamento do agendamento ${id}`);
 
-    res.json({ mensagem: 'Pagamento atualizado.', agendamento: rows[0] });
+    res.json({ mensagem: 'Pagamento atualizado.', resumo });
   } catch (err) {
     console.error('[ADMIN PAGAMENTO PATCH]', err.message);
     res.status(500).json({ erro: 'Erro ao atualizar pagamento.' });
@@ -530,16 +678,18 @@ router.get('/resumo-dia', adminAuth, async (req, res) => {
   try {
     const { rows: hojeRows } = await query(
       `SELECT COUNT(*) AS total,
-              COALESCE(SUM(valor) FILTER (WHERE pago = FALSE AND status IN ('confirmado', 'realizado')), 0) AS pendente_hoje
-       FROM agendamentos
-       WHERE DATE(data_hora) = $1::date AND status != 'cancelado'`,
+              COALESCE(SUM(
+                GREATEST(a.valor - COALESCE((SELECT SUM(valor) FROM pagamentos WHERE agendamento_id = a.id), 0), 0)
+              ) FILTER (WHERE a.status IN ('confirmado', 'realizado') AND a.valor IS NOT NULL), 0) AS pendente_hoje
+       FROM agendamentos a
+       WHERE DATE(a.data_hora) = $1::date AND a.status != 'cancelado'`,
       [data]
     );
 
     const { rows: recebidoRows } = await query(
       `SELECT COALESCE(SUM(valor), 0) AS recebido_hoje
-       FROM agendamentos
-       WHERE pago = TRUE AND DATE(pago_em) = $1::date`,
+       FROM pagamentos
+       WHERE DATE(pago_em) = $1::date`,
       [data]
     );
 
@@ -585,13 +735,17 @@ router.get('/caixa', adminAuth, async (req, res) => {
   const data = req.query.data || new Date().toISOString().split('T')[0];
 
   try {
+    // Cada linha de "pagamentos" conta no caixa do dia em que ela
+    // ocorreu — isso inclui pagamentos parciais, mesmo que a consulta
+    // ainda não esteja totalmente paga.
     const { rows: recebidos } = await query(
-      `SELECT a.id, a.servico, a.valor, a.forma_pagamento, a.pago_em,
-              p.nome AS paciente_nome
-       FROM agendamentos a
+      `SELECT pg.id, pg.valor, pg.forma_pagamento, pg.pago_em,
+              a.servico, p.nome AS paciente_nome
+       FROM pagamentos pg
+       JOIN agendamentos a ON a.id = pg.agendamento_id
        JOIN pacientes p ON p.id = a.paciente_id
-       WHERE a.pago = TRUE AND DATE(a.pago_em) = $1::date
-       ORDER BY a.pago_em ASC`,
+       WHERE DATE(pg.pago_em) = $1::date
+       ORDER BY pg.pago_em ASC`,
       [data]
     );
 
@@ -604,18 +758,22 @@ router.get('/caixa', adminAuth, async (req, res) => {
     const totalRecebido = recebidos.reduce((soma, r) => soma + Number(r.valor || 0), 0);
 
     // Pendências: consultas do dia que já aconteceram (ou foram
-    // confirmadas) mas ainda não têm pagamento registrado.
-    const { rows: pendentes } = await query(
+    // confirmadas) e ainda têm saldo a receber (parcial ou total).
+    const { rows: pendentesRaw } = await query(
       `SELECT a.id, a.servico, a.data_hora, a.status, a.valor,
-              p.nome AS paciente_nome
+              p.nome AS paciente_nome,
+              COALESCE((SELECT SUM(valor) FROM pagamentos WHERE agendamento_id = a.id), 0) AS total_pago
        FROM agendamentos a
        JOIN pacientes p ON p.id = a.paciente_id
        WHERE DATE(a.data_hora) = $1::date
-         AND a.pago = FALSE
          AND a.status IN ('confirmado', 'realizado')
        ORDER BY a.data_hora ASC`,
       [data]
     );
+
+    const pendentes = pendentesRaw
+      .map(p => ({ ...p, falta_pagar: p.valor != null ? Math.max(0, Number(p.valor) - Number(p.total_pago)) : null }))
+      .filter(p => p.falta_pagar === null || p.falta_pagar > 0);
 
     res.json({
       data,
