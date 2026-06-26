@@ -110,11 +110,41 @@ router.get('/pacientes', adminAuth, async (req, res) => {
 });
 
 // ============================================================
+// GET /api/admin/pacientes/buscar?q=... — busca paciente por
+// nome ou email, para o autocomplete da tela de novo agendamento.
+// Telefone fica fora da busca porque é criptografado (BYTEA).
+// CRÍTICO: esta rota precisa vir ANTES de /pacientes/:id no
+// arquivo — o Express casa rotas na ordem declarada, e ':id'
+// aceitaria a palavra "buscar" como se fosse um UUID, quebrando
+// a busca silenciosamente (sempre retornaria 400).
+// ============================================================
+router.get('/pacientes/buscar', adminAuth, async (req, res) => {
+  const termo = (req.query.q || '').trim();
+
+  if (termo.length < 2) {
+    return res.json({ pacientes: [] });
+  }
+
+  try {
+    const { rows } = await query(
+      `SELECT id, nome, sobrenome, email,
+              pgp_sym_decrypt(telefone, $2) AS telefone
+       FROM pacientes
+       WHERE LOWER(nome) LIKE LOWER($1) OR LOWER(email) LIKE LOWER($1)
+       ORDER BY nome
+       LIMIT 10`,
+      [`%${termo}%`, process.env.TELEFONE_CRYPT_KEY]
+    );
+    res.json({ pacientes: rows });
+  } catch (err) {
+    console.error('[ADMIN PACIENTES BUSCAR]', err.message);
+    res.status(500).json({ erro: 'Erro ao buscar pacientes.' });
+  }
+});
+
+// ============================================================
 // GET /api/admin/pacientes/:id — detalhe de um paciente +
 // histórico completo de agendamentos (para a tela de histórico).
-// Fica DEPOIS de /pacientes/buscar de propósito: o Express casa
-// rotas na ordem declarada, e ':id' casaria com a palavra "buscar"
-// se viesse primeiro.
 // ============================================================
 router.get('/pacientes/:id', adminAuth, async (req, res) => {
   const { id } = req.params;
@@ -265,6 +295,41 @@ router.post('/dentistas', adminAuth, async (req, res) => {
 });
 
 // ============================================================
+// PATCH /api/admin/dentistas/:id — edita dados de um profissional
+// já cadastrado (nome, profissão, registro, email, foto, ativo).
+// ============================================================
+router.patch('/dentistas/:id', adminAuth, async (req, res) => {
+  const { id } = req.params;
+  const { nome, sobrenome, cro, especialidade, email, fotoUrl, ativo } = req.body;
+
+  const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+  if (!uuidRegex.test(id)) return res.status(400).json({ erro: 'Profissional inválido.' });
+  if (!nome || !especialidade) {
+    return res.status(400).json({ erro: 'Nome e profissão são obrigatórios.' });
+  }
+
+  try {
+    const { rows } = await query(
+      `UPDATE dentistas
+       SET nome = $1, sobrenome = $2, cro = $3, especialidade = $4, email = $5, foto_url = $6,
+           ativo = COALESCE($7, ativo)
+       WHERE id = $8
+       RETURNING id, nome, sobrenome, cro, especialidade, email, foto_url, ativo`,
+      [nome, sobrenome || '', cro || null, especialidade, email || '', fotoUrl || null, ativo, id]
+    );
+
+    if (!rows.length) return res.status(404).json({ erro: 'Profissional não encontrado.' });
+
+    console.log(`[ADMIN] ${req.admin.email} editou profissional ${rows[0].nome}`);
+
+    res.json({ mensagem: 'Profissional atualizado.', dentista: rows[0] });
+  } catch (err) {
+    console.error('[ADMIN DENTISTA PATCH]', err.message);
+    res.status(500).json({ erro: 'Erro ao atualizar profissional.' });
+  }
+});
+
+// ============================================================
 // DELETE /api/admin/dentistas/:id — remove um profissional.
 // Não deleta de fato se houver agendamentos vinculados (FK),
 // nesse caso apenas desativa, para não perder o histórico.
@@ -297,36 +362,6 @@ router.delete('/dentistas/:id', adminAuth, async (req, res) => {
   } catch (err) {
     console.error('[ADMIN DENTISTA DELETE]', err.message);
     res.status(500).json({ erro: 'Erro ao excluir profissional.' });
-  }
-});
-
-// ============================================================
-// GET /api/admin/pacientes/buscar?q=... — busca paciente por
-// nome ou email, para o autocomplete da tela de novo agendamento.
-// Telefone fica fora da busca porque é criptografado (BYTEA) —
-// ver migração 001 para detalhes.
-// ============================================================
-router.get('/pacientes/buscar', adminAuth, async (req, res) => {
-  const termo = (req.query.q || '').trim();
-
-  if (termo.length < 2) {
-    return res.json({ pacientes: [] });
-  }
-
-  try {
-    const { rows } = await query(
-      `SELECT id, nome, sobrenome, email,
-              pgp_sym_decrypt(telefone, $2) AS telefone
-       FROM pacientes
-       WHERE LOWER(nome) LIKE LOWER($1) OR LOWER(email) LIKE LOWER($1)
-       ORDER BY nome
-       LIMIT 10`,
-      [`%${termo}%`, process.env.TELEFONE_CRYPT_KEY]
-    );
-    res.json({ pacientes: rows });
-  } catch (err) {
-    console.error('[ADMIN PACIENTES BUSCAR]', err.message);
-    res.status(500).json({ erro: 'Erro ao buscar pacientes.' });
   }
 });
 
@@ -423,6 +458,38 @@ router.post('/agendamentos', adminAuth, async (req, res) => {
   } catch (err) {
     console.error('[ADMIN AGENDAMENTO POST]', err.message);
     res.status(500).json({ erro: 'Erro ao criar agendamento.' });
+  }
+});
+
+// ============================================================
+// PATCH /api/admin/agendamentos/:id/valor — define ou edita o
+// valor total previsto de uma consulta. Útil quando o agendamento
+// foi criado sem valor (ex: o site do paciente não pede valor) e
+// a secretária precisa defini-lo depois, na hora de cobrar.
+// ============================================================
+router.patch('/agendamentos/:id/valor', adminAuth, async (req, res) => {
+  const { id } = req.params;
+  const { valor } = req.body;
+
+  if (!valor || Number(valor) <= 0) {
+    return res.status(400).json({ erro: 'Informe um valor maior que zero.' });
+  }
+
+  try {
+    const { rows } = await query(
+      'UPDATE agendamentos SET valor = $1, atualizado_em = NOW() WHERE id = $2 RETURNING id, valor',
+      [Number(valor), id]
+    );
+    if (!rows.length) return res.status(404).json({ erro: 'Agendamento não encontrado.' });
+
+    await recalcularStatusPagamento(id);
+
+    console.log(`[ADMIN] ${req.admin.email} definiu valor R$${valor} no agendamento ${id}`);
+
+    res.json({ mensagem: 'Valor definido.', agendamento: rows[0] });
+  } catch (err) {
+    console.error('[ADMIN VALOR PATCH]', err.message);
+    res.status(500).json({ erro: 'Erro ao definir valor.' });
   }
 });
 

@@ -1006,7 +1006,26 @@ async function abrirModalDetalhe(ag) {
 
       const resumoEl = overlay.querySelector('#modal-pagamento-resumo');
       if (valorTotal == null) {
-        resumoEl.innerHTML = `Nenhum valor definido para esta consulta ainda. Total já recebido: <strong>R$ ${totalPago.toFixed(2)}</strong>`;
+        resumoEl.innerHTML = `
+          <div style="margin-bottom:6px">Nenhum valor definido para esta consulta ainda${totalPago > 0 ? ` (já recebido: <strong>R$ ${totalPago.toFixed(2)}</strong>)` : ''}.</div>
+          <div style="display:flex;gap:6px;align-items:center">
+            <input class="form-input" id="modal-valor-consulta" type="number" step="0.01" min="0.01" placeholder="Valor da consulta (R$)" style="flex:1" />
+            <button class="btn btn-primary btn-sm" id="modal-salvar-valor-consulta">Definir</button>
+          </div>`;
+        overlay.querySelector('#modal-salvar-valor-consulta').addEventListener('click', async () => {
+          const novoValor = overlay.querySelector('#modal-valor-consulta').value;
+          if (!novoValor || Number(novoValor) <= 0) {
+            mostrarToast('toast-modal', 'error', 'Informe um valor válido.');
+            return;
+          }
+          try {
+            await apiFetch(`/agendamentos/${ag.id}/valor`, { method: 'PATCH', body: JSON.stringify({ valor: Number(novoValor) }) });
+            carregarPagamentosModal();
+            atualizarAgendaAposAcao();
+          } catch (err) {
+            mostrarToast('toast-modal', 'error', err.message);
+          }
+        });
       } else if (faltaPagar > 0) {
         resumoEl.innerHTML = `Valor da consulta: <strong>R$ ${valorTotal.toFixed(2)}</strong> · Pago: <strong style="color:var(--green-dark)">R$ ${totalPago.toFixed(2)}</strong> · <strong style="color:#854F0B">Falta: R$ ${faltaPagar.toFixed(2)}</strong>`;
       } else {
@@ -1731,8 +1750,18 @@ async function carregarDentistas() {
         <td>${esc(d.especialidade) || '—'}</td>
         <td>${esc(d.cro) || '—'}</td>
         <td><span class="badge badge-${d.ativo ? 'ativo' : 'inativo'}">${d.ativo ? 'Ativo' : 'Inativo'}</span></td>
-        <td><button class="btn btn-sm btn-outline btn-excluir-dentista" data-id="${esc(d.id)}" data-nome="${esc(d.nome)}"><i class="ti ti-trash"></i></button></td>
+        <td style="display:flex;gap:6px">
+          <button class="btn btn-sm btn-outline btn-editar-dentista" data-id="${esc(d.id)}"><i class="ti ti-edit"></i></button>
+          <button class="btn btn-sm btn-outline btn-excluir-dentista" data-id="${esc(d.id)}" data-nome="${esc(d.nome)}"><i class="ti ti-trash"></i></button>
+        </td>
       </tr>`).join('');
+
+    tbody.querySelectorAll('.btn-editar-dentista').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const d = dentistas.find(x => x.id === btn.dataset.id);
+        if (d) abrirFormDentista(d);
+      });
+    });
 
     tbody.querySelectorAll('.btn-excluir-dentista').forEach(btn => {
       btn.addEventListener('click', async () => {
@@ -1749,17 +1778,26 @@ async function carregarDentistas() {
   } catch (err) { console.error(err); }
 }
 
-document.getElementById('btn-novo-dentista').addEventListener('click', () => {
-  document.getElementById('d-nome').value = '';
-  document.getElementById('d-sobre').value = '';
-  document.getElementById('d-esp').value = '';
-  document.getElementById('d-cro').value = '';
-  document.getElementById('d-email').value = '';
-  document.getElementById('d-foto').value = '';
+// Estado do formulário: null = modo "criar novo"; um id = modo "editando este profissional"
+let dentistaEditandoId = null;
+
+function abrirFormDentista(d) {
+  dentistaEditandoId = d ? d.id : null;
+  document.getElementById('d-nome').value = d ? d.nome || '' : '';
+  document.getElementById('d-sobre').value = d ? d.sobrenome || '' : '';
+  document.getElementById('d-esp').value = d ? d.especialidade || '' : '';
+  document.getElementById('d-cro').value = d ? d.cro || '' : '';
+  document.getElementById('d-email').value = d ? d.email || '' : '';
+  document.getElementById('d-foto').value = d ? d.foto_url || '' : '';
+  document.querySelector('#form-dentista h3').textContent = d ? 'Editar profissional' : 'Adicionar profissional';
+  document.getElementById('btn-salvar-dentista').textContent = d ? 'Salvar alterações' : 'Salvar';
   document.getElementById('form-dentista').style.display = 'block';
-});
+}
+
+document.getElementById('btn-novo-dentista').addEventListener('click', () => abrirFormDentista(null));
 document.getElementById('btn-cancelar-dentista').addEventListener('click', () => {
   document.getElementById('form-dentista').style.display = 'none';
+  dentistaEditandoId = null;
 });
 document.getElementById('btn-salvar-dentista').addEventListener('click', async () => {
   const nome = document.getElementById('d-nome').value.trim();
@@ -1770,9 +1808,15 @@ document.getElementById('btn-salvar-dentista').addEventListener('click', async (
   const fotoUrl = document.getElementById('d-foto').value.trim();
   if (!nome || !especialidade) { mostrarToast('toast-dentista', 'error', 'Nome e profissão são obrigatórios.'); return; }
   try {
-    await apiFetch('/dentistas', { method: 'POST', body: JSON.stringify({ nome, sobrenome, cro, especialidade, email, fotoUrl }) });
-    mostrarToast('toast-dentista', 'success', 'Profissional adicionado!');
+    if (dentistaEditandoId) {
+      await apiFetch(`/dentistas/${dentistaEditandoId}`, { method: 'PATCH', body: JSON.stringify({ nome, sobrenome, cro, especialidade, email, fotoUrl }) });
+      mostrarToast('toast-dentista', 'success', 'Profissional atualizado!');
+    } else {
+      await apiFetch('/dentistas', { method: 'POST', body: JSON.stringify({ nome, sobrenome, cro, especialidade, email, fotoUrl }) });
+      mostrarToast('toast-dentista', 'success', 'Profissional adicionado!');
+    }
     document.getElementById('form-dentista').style.display = 'none';
+    dentistaEditandoId = null;
     carregarDentistas();
   } catch (err) { mostrarToast('toast-dentista', 'error', err.message); }
 });
