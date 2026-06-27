@@ -5,6 +5,18 @@ const adminAuth = require('../middleware/adminAuth');
 const router = express.Router();
 
 // ============================================================
+// Helper: data de "hoje" no fuso de São Paulo, não no fuso do
+// servidor. O Railway roda o Node em UTC — sem isso, qualquer
+// cálculo de "hoje" feito entre 21h e 23h59 (horário de Brasília)
+// erraria o dia, porque em UTC já seria o dia seguinte. Isso
+// afetava diretamente o caixa e o resumo do dia justamente na
+// janela em que a secretária costuma fechar o caixa.
+// ============================================================
+function hojeEmSaoPaulo() {
+  return new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Sao_Paulo' }).format(new Date());
+}
+
+// ============================================================
 // GET /api/admin/agendamentos — todos os agendamentos
 // ============================================================
 router.get('/agendamentos', adminAuth, async (req, res) => {
@@ -413,6 +425,9 @@ router.post('/pacientes', adminAuth, async (req, res) => {
 
     res.status(201).json({ mensagem: 'Paciente cadastrado.', paciente: rows[0] });
   } catch (err) {
+    if (err.code === '23505') { // unique_violation — duas requisições quase simultâneas (ex: duplo clique)
+      return res.status(409).json({ erro: 'Já existe um paciente com esse email.' });
+    }
     console.error('[ADMIN PACIENTE POST]', err.message);
     res.status(500).json({ erro: 'Erro ao cadastrar paciente.' });
   }
@@ -766,7 +781,7 @@ router.patch('/agendamentos/:id/pagamento', adminAuth, async (req, res) => {
 // o dia de hoje.
 // ============================================================
 router.get('/resumo-dia', adminAuth, async (req, res) => {
-  const data = req.query.data || new Date().toISOString().split('T')[0];
+  const data = req.query.data || hojeEmSaoPaulo();
 
   try {
     const { rows: hojeRows } = await query(
@@ -825,7 +840,7 @@ router.get('/resumo-dia', adminAuth, async (req, res) => {
 // Sem "data" no query, usa o dia de hoje.
 // ============================================================
 router.get('/caixa', adminAuth, async (req, res) => {
-  const data = req.query.data || new Date().toISOString().split('T')[0];
+  const data = req.query.data || hojeEmSaoPaulo();
 
   try {
     // Cada linha de "pagamentos" conta no caixa do dia em que ela

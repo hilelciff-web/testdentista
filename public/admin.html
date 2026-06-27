@@ -666,7 +666,7 @@ async function carregarDashboard() {
     document.getElementById('st-cancelados').textContent = ag.cancelados;
     document.getElementById('st-pacientes').textContent = pac.total;
 
-    const hoje = new Date().toISOString().split('T')[0];
+    const hoje = formatarDataYMD(new Date());
     const { agendamentos } = await apiFetch(`/agendamentos?data=${hoje}`);
     const lista = document.getElementById('lista-hoje');
     if (!agendamentos.length) { lista.innerHTML = '<p class="empty">Nenhuma consulta hoje.</p>'; return; }
@@ -1086,13 +1086,16 @@ async function abrirModalDetalhe(ag) {
     overlay.querySelector('#modal-form-novo-pagamento').style.display = 'block';
   });
 
-  overlay.querySelector('#modal-pgto-confirmar').addEventListener('click', async () => {
+  overlay.querySelector('#modal-pgto-confirmar').addEventListener('click', async (e) => {
     const valor = overlay.querySelector('#modal-pgto-valor').value;
     const forma = overlay.querySelector('#modal-pgto-forma').value;
     if (!valor || Number(valor) <= 0) {
       mostrarToast('toast-modal', 'error', 'Informe um valor de pagamento válido.');
       return;
     }
+    const botao = e.currentTarget;
+    if (botao.disabled) return; // já está processando, ignora clique extra
+    botao.disabled = true;
     try {
       await apiFetch(`/agendamentos/${ag.id}/pagamentos`, {
         method: 'POST',
@@ -1104,6 +1107,8 @@ async function abrirModalDetalhe(ag) {
       atualizarAgendaAposAcao();
     } catch (err) {
       mostrarToast('toast-modal', 'error', err.message);
+    } finally {
+      botao.disabled = false;
     }
   });
 
@@ -1323,7 +1328,7 @@ document.getElementById('ag-paciente-trocar').addEventListener('click', () => {
   document.getElementById('ag-paciente-selecionado').style.display = 'none';
 });
 
-document.getElementById('btn-salvar-agendamento').addEventListener('click', async () => {
+document.getElementById('btn-salvar-agendamento').addEventListener('click', async (e) => {
   const servico = document.getElementById('ag-servico').value;
   const dentistaId = document.getElementById('ag-dentista').value;
   const data = document.getElementById('ag-data').value;
@@ -1337,6 +1342,10 @@ document.getElementById('btn-salvar-agendamento').addEventListener('click', asyn
     mostrarToast('toast-agendamento', 'error', 'Serviço, data e horário são obrigatórios.');
     return;
   }
+
+  const botao = e.currentTarget;
+  if (botao.disabled) return; // já está processando, ignora clique extra
+  botao.disabled = true;
 
   try {
     // Se o paciente ainda não foi selecionado, mas o form de cadastro
@@ -1386,6 +1395,8 @@ document.getElementById('btn-salvar-agendamento').addEventListener('click', asyn
     carregarAgendamentos();
   } catch (err) {
     mostrarToast('toast-agendamento', 'error', err.message);
+  } finally {
+    botao.disabled = false;
   }
 });
 

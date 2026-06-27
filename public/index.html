@@ -534,6 +534,35 @@ function logout() {
 }
 
 // ============================================================
+// TIMEOUT DE SESSÃO POR INATIVIDADE — 30 minutos
+// Protege contas acessadas em computadores compartilhados ou
+// públicos (lan house, biblioteca, celular de outra pessoa):
+// se o paciente esquecer a sessão aberta e ficar 30 minutos sem
+// nenhuma interação real, ele é deslogado automaticamente.
+// Qualquer clique, tecla, toque ou scroll reinicia a contagem.
+// ============================================================
+const TEMPO_INATIVIDADE_MS = 30 * 60 * 1000; // 30 minutos
+let timerInatividade = null;
+
+function reiniciarTimerInatividade() {
+  if (!pacienteAtual) return; // não monitora quem não está logado
+  if (timerInatividade) clearTimeout(timerInatividade);
+  timerInatividade = setTimeout(() => {
+    if (!pacienteAtual) return; // checagem extra: pode ter deslogado por outro motivo nesse meio tempo
+    logout();
+    alert('Sua sessão expirou por inatividade. Faça login novamente para continuar.');
+  }, TEMPO_INATIVIDADE_MS);
+}
+
+['click', 'keydown', 'mousemove', 'scroll', 'touchstart'].forEach(evento => {
+  document.addEventListener(evento, reiniciarTimerInatividade, { passive: true });
+});
+
+// Inicia o timer já no carregamento da página, caso o paciente
+// já esteja logado (sessão salva de uma visita anterior).
+reiniciarTimerInatividade();
+
+// ============================================================
 // LOGIN
 // ============================================================
 async function fazerLogin() {
@@ -628,8 +657,12 @@ function initAgenda() {
 
   carregarDentistas();
 
-  // data mínima = hoje
-  const d = new Date().toISOString().split('T')[0];
+  // data mínima = hoje (no fuso local do navegador, não UTC — usar
+  // toISOString() aqui bloquearia incorretamente "hoje" como opção
+  // entre 21h e 23h59 no horário de Brasília, já que toISOString
+  // sempre converte para UTC antes de formatar).
+  const hojeLocal = new Date();
+  const d = hojeLocal.getFullYear() + '-' + String(hojeLocal.getMonth() + 1).padStart(2, '0') + '-' + String(hojeLocal.getDate()).padStart(2, '0');
   document.getElementById('ag-data').min = d;
 }
 
