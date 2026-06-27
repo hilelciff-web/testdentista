@@ -478,7 +478,7 @@ function switchTab(id, btn) {
 function showToast(id, type, msg) {
   const t = document.getElementById(id);
   t.className = 'toast ' + type;
-  t.innerHTML = `<i class="ti ti-${type === 'success' ? 'circle-check' : 'alert-circle'}"></i> ${msg}`;
+  t.innerHTML = `<i class="ti ti-${type === 'success' ? 'circle-check' : 'alert-circle'}"></i> ${escEquipe(msg)}`;
 }
 function hideToast(id) {
   const t = document.getElementById(id);
@@ -740,13 +740,13 @@ async function carregarMeusAgendamentos() {
     lista.innerHTML = res.agendamentos.map(a => `
       <div class="agend-item">
         <div>
-          <p style="font-size:14px;font-weight:600">${a.servico}</p>
+          <p style="font-size:14px;font-weight:600">${escEquipe(a.servico)}</p>
           <p style="font-size:12px;color:var(--text2);margin-top:3px">${new Date(a.data_hora).toLocaleString('pt-BR')}</p>
-          ${a.dentista_nome ? `<p style="font-size:12px;color:var(--text3)">${a.dentista_nome}</p>` : ''}
+          ${a.dentista_nome ? `<p style="font-size:12px;color:var(--text3)">${escEquipe(a.dentista_nome)}</p>` : ''}
         </div>
         <div style="display:flex;flex-direction:column;align-items:flex-end;gap:8px">
-          <span class="agend-status status-${a.status}">${a.status}</span>
-          ${a.status === 'pendente' ? `<button class="btn btn-danger btn-sm btn-cancelar" data-id="${a.id}">Cancelar</button>` : ''}
+          <span class="agend-status status-${escEquipe(a.status)}">${escEquipe(a.status)}</span>
+          ${a.status === 'pendente' ? `<button class="btn btn-danger btn-sm btn-cancelar" data-id="${escEquipe(a.id)}">Cancelar</button>` : ''}
         </div>
       </div>
     `).join('');
@@ -911,10 +911,37 @@ async function carregarEquipe() {
   }
 }
 
+// ============================================================
+// PREÇOS DOS SERVIÇOS — busca os preços reais cadastrados no
+// admin (tela "Serviços") e atualiza o texto de cada card que
+// já existe no HTML, casando pelo atributo data-servico. Ícone
+// e descrição continuam fixos no HTML (são conteúdo de
+// apresentação); só o preço vem do banco, que é dado operacional
+// e precisa estar sempre sincronizado com o que o admin define.
+// ============================================================
+async function carregarPrecosServicos() {
+  try {
+    const { servicos } = await apiFetch('/agendamentos/servicos');
+    servicos.forEach(s => {
+      const card = document.querySelector(`.service-card[data-servico="${CSS.escape(s.nome)}"]`);
+      if (!card) return; // serviço novo cadastrado no admin, sem card visual ainda no site
+      const precoEl = card.querySelector('.service-price');
+      if (!precoEl) return;
+      precoEl.textContent = s.preco_padrao != null
+        ? `A partir de R$ ${Number(s.preco_padrao).toFixed(2).replace('.', ',')}`
+        : 'Consulte valores';
+    });
+  } catch (err) {
+    console.error('Não foi possível carregar preços dos serviços:', err);
+    // Em caso de erro, os preços fixos que já estão no HTML continuam visíveis — falha segura.
+  }
+}
+
 // Init
 atualizarNav();
 animarContadores();
 carregarEquipe();
+carregarPrecosServicos();
 </script>
 </body>
 </html>

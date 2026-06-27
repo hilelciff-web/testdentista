@@ -68,12 +68,27 @@ router.patch('/agendamentos/:id', adminAuth, async (req, res) => {
   const { id } = req.params;
   const { status } = req.body;
   const statusValidos = ['pendente', 'confirmado', 'cancelado', 'realizado', 'faltou'];
+  const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
+  if (!uuidRegex.test(id)) {
+    return res.status(400).json({ erro: 'Agendamento inválido.' });
+  }
   if (!statusValidos.includes(status)) {
     return res.status(400).json({ erro: 'Status inválido.' });
   }
 
   try {
+    // "Faltou" só faz sentido para uma consulta que já deveria ter
+    // acontecido — sem essa checagem, um clique errado bloquearia
+    // um horário futuro sem necessidade (já que /horarios ignora
+    // consultas com status faltou ao calcular disponibilidade).
+    if (status === 'faltou') {
+      const { rows: agRows } = await query('SELECT data_hora FROM agendamentos WHERE id = $1', [id]);
+      if (agRows.length && new Date(agRows[0].data_hora) > new Date()) {
+        return res.status(400).json({ erro: 'Não é possível marcar falta em uma consulta que ainda não aconteceu.' });
+      }
+    }
+
     const { rows } = await query(
       `UPDATE agendamentos SET status = $1, atualizado_em = NOW()
        WHERE id = $2 RETURNING id, status`,
@@ -470,7 +485,11 @@ router.post('/agendamentos', adminAuth, async (req, res) => {
 router.patch('/agendamentos/:id/valor', adminAuth, async (req, res) => {
   const { id } = req.params;
   const { valor } = req.body;
+  const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
+  if (!uuidRegex.test(id)) {
+    return res.status(400).json({ erro: 'Agendamento inválido.' });
+  }
   if (!valor || Number(valor) <= 0) {
     return res.status(400).json({ erro: 'Informe um valor maior que zero.' });
   }
@@ -501,7 +520,11 @@ router.patch('/agendamentos/:id/valor', adminAuth, async (req, res) => {
 router.patch('/agendamentos/:id/remarcar', adminAuth, async (req, res) => {
   const { id } = req.params;
   const { dataHora, dentistaId } = req.body;
+  const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
+  if (!uuidRegex.test(id)) {
+    return res.status(400).json({ erro: 'Agendamento inválido.' });
+  }
   if (!dataHora) {
     return res.status(400).json({ erro: 'Nova data e horário são obrigatórios.' });
   }
@@ -516,7 +539,6 @@ router.patch('/agendamentos/:id/remarcar', adminAuth, async (req, res) => {
     if (dentistaId === null || dentistaId === '') {
       dentistaIdValido = null; // remove o dentista do agendamento
     } else {
-      const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
       if (!uuidRegex.test(dentistaId)) {
         return res.status(400).json({ erro: 'Dentista inválido.' });
       }
@@ -693,7 +715,11 @@ router.delete('/pagamentos/:id', adminAuth, async (req, res) => {
 router.patch('/agendamentos/:id/pagamento', adminAuth, async (req, res) => {
   const { id } = req.params;
   const { valor, formaPagamento, pago } = req.body;
+  const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
+  if (!uuidRegex.test(id)) {
+    return res.status(400).json({ erro: 'Agendamento inválido.' });
+  }
   if (formaPagamento && !['dinheiro', 'pix', 'cartao'].includes(formaPagamento)) {
     return res.status(400).json({ erro: 'Forma de pagamento inválida.' });
   }
@@ -1016,7 +1042,11 @@ router.post('/planos/:id/etapas', adminAuth, async (req, res) => {
 router.patch('/planos/:id', adminAuth, async (req, res) => {
   const { id } = req.params;
   const { titulo, valorTotal, status, observacoes } = req.body;
+  const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
+  if (!uuidRegex.test(id)) {
+    return res.status(400).json({ erro: 'Plano inválido.' });
+  }
   if (status && !['em_andamento', 'concluido', 'cancelado'].includes(status)) {
     return res.status(400).json({ erro: 'Status inválido.' });
   }

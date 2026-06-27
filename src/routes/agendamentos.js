@@ -178,7 +178,7 @@ router.get('/horarios', async (req, res) => {
       `SELECT data_hora FROM agendamentos
        WHERE DATE(data_hora) = $1::date
          AND ($2::uuid IS NULL OR dentista_id = $2::uuid)
-         AND status NOT IN ('cancelado')`,
+         AND status NOT IN ('cancelado', 'faltou')`,
       [data, dentistaId || null]
     );
 

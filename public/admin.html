@@ -634,7 +634,7 @@ async function apiFetch(path, options = {}) {
 function mostrarToast(id, tipo, msg) {
   const t = document.getElementById(id);
   t.className = 'toast show ' + tipo;
-  t.innerHTML = `<i class="ti ti-${tipo === 'success' ? 'circle-check' : 'alert-circle'}"></i> ${msg}`;
+  t.innerHTML = `<i class="ti ti-${tipo === 'success' ? 'circle-check' : 'alert-circle'}"></i> ${esc(msg)}`;
   setTimeout(() => t.classList.remove('show'), 4000);
 }
 
@@ -1110,6 +1110,10 @@ async function abrirModalDetalhe(ag) {
   const btnFaltou = overlay.querySelector('#modal-btn-faltou');
   if (btnFaltou) {
     btnFaltou.addEventListener('click', async () => {
+      if (new Date(ag.data_hora) > new Date()) {
+        mostrarToast('toast-modal', 'error', 'Esta consulta ainda não aconteceu — não é possível marcar falta antes do horário.');
+        return;
+      }
       if (!confirm('Marcar que o paciente faltou a esta consulta?')) return;
       try {
         await apiFetch(`/agendamentos/${ag.id}`, { method: 'PATCH', body: JSON.stringify({ status: 'faltou' }) });
