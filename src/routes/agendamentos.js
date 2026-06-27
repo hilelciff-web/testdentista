@@ -4,15 +4,37 @@ const auth = require('../middleware/auth');
 
 const router = express.Router();
 
-// Serviços permitidos (whitelist — nunca confie no input puro)
-const SERVICOS_VALIDOS = [
-  'Clareamento dental',
-  'Ortodontia — avaliação',
-  'Limpeza e prevenção',
-  'Implante dental',
-  'Facetas de porcelana',
-  'Odontopediatria',
-];
+// ============================================================
+// GET /api/agendamentos/servicos — lista serviços ativos
+// (pública). Usada pelo formulário de agendamento do site para
+// popular as opções de serviço com preço de referência.
+// ============================================================
+router.get('/servicos', async (req, res) => {
+  try {
+    const { rows } = await query(
+      `SELECT id, nome, preco_padrao FROM servicos WHERE ativo = TRUE ORDER BY nome`
+    );
+    res.json({ servicos: rows });
+  } catch (err) {
+    console.error('[AGENDAMENTOS SERVICOS]', err.message);
+    res.status(500).json({ erro: 'Erro ao buscar serviços.' });
+  }
+});
+
+// Helper: confirma que um nome de serviço corresponde a um
+// serviço ativo cadastrado no banco — substitui a antiga lista
+// fixa (SERVICOS_VALIDOS) como whitelist de validação, agora
+// dinâmica e sincronizada com o que o admin cadastra na tela de
+// Serviços. Nunca confie no texto de serviço enviado pelo cliente
+// sem essa checagem.
+async function servicoEhValido(nomeServico) {
+  if (!nomeServico) return false;
+  const { rows } = await query(
+    'SELECT 1 FROM servicos WHERE nome = $1 AND ativo = TRUE',
+    [nomeServico]
+  );
+  return rows.length > 0;
+}
 
 // ============================================================
 // GET /api/agendamentos/dentistas — lista profissionais ativos
@@ -63,7 +85,7 @@ router.get('/', auth, async (req, res) => {
 router.post('/', auth, async (req, res) => {
   const { servico, dentistaId, dataHora, observacoes } = req.body;
 
-  if (!SERVICOS_VALIDOS.includes(servico)) {
+  if (!(await servicoEhValido(servico))) {
     return res.status(400).json({ erro: 'Serviço inválido.' });
   }
 

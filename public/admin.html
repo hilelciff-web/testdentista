@@ -183,6 +183,7 @@
       <button class="nav-tab" id="tab-agendamentos">Agendamentos</button>
       <button class="nav-tab" id="tab-pacientes">Pacientes</button>
       <button class="nav-tab" id="tab-caixa">Caixa</button>
+      <button class="nav-tab" id="tab-servicos">Serviços</button>
       <button class="nav-tab" id="tab-dentistas">Equipe</button>
     </div>
     <div class="nav-right">
@@ -282,12 +283,6 @@
             <label class="form-label">Serviço</label>
             <select class="form-input" id="ag-servico">
               <option value="">Selecione…</option>
-              <option>Clareamento dental</option>
-              <option>Ortodontia — avaliação</option>
-              <option>Limpeza e prevenção</option>
-              <option>Implante dental</option>
-              <option>Facetas de porcelana</option>
-              <option>Odontopediatria</option>
             </select>
           </div>
           <div class="form-group">
@@ -473,6 +468,35 @@
       </div>
     </div>
 
+    <!-- SERVIÇOS -->
+    <div id="screen-servicos" class="screen">
+      <div class="sec-header">
+        <h2>Serviços e preços</h2>
+        <button class="btn btn-primary" id="btn-novo-servico"><i class="ti ti-plus"></i> Novo serviço</button>
+      </div>
+      <p style="font-size:12px;color:var(--text2);margin-bottom:14px">O preço padrão pré-preenche o valor ao criar um agendamento, mas pode ser ajustado em cada consulta (ex: desconto).</p>
+
+      <div id="form-servico" class="card" style="display:none">
+        <h3 style="font-size:14px;margin-bottom:14px">Adicionar serviço</h3>
+        <div id="toast-servico" class="toast"></div>
+        <div class="form-row">
+          <div class="form-group"><label class="form-label">Nome do serviço</label><input class="form-input" id="sv-nome" placeholder="Ex: Implante dental" /></div>
+          <div class="form-group"><label class="form-label">Preço padrão (R$, opcional)</label><input class="form-input" id="sv-preco" type="number" step="0.01" min="0" placeholder="0,00" /></div>
+        </div>
+        <div style="display:flex;gap:8px">
+          <button class="btn btn-primary" id="btn-salvar-servico"><i class="ti ti-check"></i> Salvar</button>
+          <button class="btn btn-outline" id="btn-cancelar-servico">Cancelar</button>
+        </div>
+      </div>
+
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Serviço</th><th>Preço padrão</th><th>Status</th><th>Ação</th></tr></thead>
+          <tbody id="tbody-servicos"><tr><td colspan="4" class="empty">Carregando…</td></tr></tbody>
+        </table>
+      </div>
+    </div>
+
     <!-- DENTISTAS -->
     <div id="screen-dentistas" class="screen">
       <div class="sec-header">
@@ -566,7 +590,7 @@ if (ADMIN_TOKEN) {
 // ============================================================
 // NAVEGAÇÃO
 // ============================================================
-const tabs = { dashboard: 'screen-dashboard', agendamentos: 'screen-agendamentos', pacientes: 'screen-pacientes', caixa: 'screen-caixa', dentistas: 'screen-dentistas' };
+const tabs = { dashboard: 'screen-dashboard', agendamentos: 'screen-agendamentos', pacientes: 'screen-pacientes', caixa: 'screen-caixa', servicos: 'screen-servicos', dentistas: 'screen-dentistas' };
 
 Object.keys(tabs).forEach(key => {
   document.getElementById('tab-' + key).addEventListener('click', () => {
@@ -579,6 +603,7 @@ Object.keys(tabs).forEach(key => {
     if (key === 'pacientes') carregarPacientes();
     if (key === 'pacientes') voltarParaListaPacientes();
     if (key === 'caixa') carregarCaixa();
+    if (key === 'servicos') carregarServicos();
     if (key === 'dentistas') carregarDentistas();
   });
 });
@@ -1212,9 +1237,29 @@ async function popularSelectDentistas() {
   } catch (err) { console.error(err); }
 }
 
+async function popularSelectServicos() {
+  await carregarServicosCache();
+  const sel = document.getElementById('ag-servico');
+  sel.innerHTML = '<option value="">Selecione…</option>' +
+    servicosCache.filter(s => s.ativo).map(s => `<option value="${esc(s.nome)}">${esc(s.nome)}</option>`).join('');
+}
+
+// Ao escolher um serviço no formulário de agendamento, pré-preenche
+// o valor com o preço padrão cadastrado — mas só se o campo de valor
+// ainda estiver vazio, para não sobrescrever um valor que a secretária
+// já tenha digitado manualmente.
+document.getElementById('ag-servico').addEventListener('change', (e) => {
+  const servico = servicosCache.find(s => s.nome === e.target.value);
+  const campoValor = document.getElementById('ag-valor');
+  if (servico && servico.preco_padrao != null && !campoValor.value) {
+    campoValor.value = servico.preco_padrao;
+  }
+});
+
 document.getElementById('btn-novo-agendamento').addEventListener('click', () => {
   resetarFormAgendamento();
   popularSelectDentistas();
+  popularSelectServicos();
   document.getElementById('form-agendamento').style.display = 'block';
 });
 
@@ -1550,12 +1595,6 @@ async function abrirDetalhePlano(planoId) {
             <div class="form-group"><label class="form-label">Serviço</label>
               <select class="form-input" id="etapa-servico">
                 <option value="">Selecione…</option>
-                <option>Clareamento dental</option>
-                <option>Ortodontia — avaliação</option>
-                <option>Limpeza e prevenção</option>
-                <option>Implante dental</option>
-                <option>Facetas de porcelana</option>
-                <option>Odontopediatria</option>
               </select>
             </div>
             <div class="form-group"><label class="form-label">Valor (R$)</label><input class="form-input" id="etapa-valor" type="number" step="0.01" min="0" /></div>
@@ -1574,6 +1613,20 @@ async function abrirDetalhePlano(planoId) {
         </div>
       </div>`;
     document.body.appendChild(overlay);
+
+    // Popula o select de serviços dinamicamente (mesma fonte da tela de Serviços)
+    carregarServicosCache().then(() => {
+      const selEtapa = overlay.querySelector('#etapa-servico');
+      selEtapa.innerHTML = '<option value="">Selecione…</option>' +
+        servicosCache.filter(s => s.ativo).map(s => `<option value="${esc(s.nome)}">${esc(s.nome)}</option>`).join('');
+      selEtapa.addEventListener('change', (e) => {
+        const servicoSelecionado = servicosCache.find(s => s.nome === e.target.value);
+        const campoValorEtapa = overlay.querySelector('#etapa-valor');
+        if (servicoSelecionado && servicoSelecionado.preco_padrao != null && !campoValorEtapa.value) {
+          campoValorEtapa.value = servicoSelecionado.preco_padrao;
+        }
+      });
+    });
 
     function renderizarEtapas(lista) {
       const container = overlay.querySelector('#lista-etapas-plano');
@@ -1732,6 +1785,84 @@ async function carregarCaixa() {
       : '<tr><td colspan="5" class="empty">Nenhuma pendência neste dia.</td></tr>';
   } catch (err) { console.error(err); }
 }
+
+// ============================================================
+// SERVIÇOS E PREÇOS
+// ============================================================
+let servicosCache = []; // usado também pelo formulário de novo agendamento, para auto-preencher valor
+let servicoEditandoId = null;
+
+async function carregarServicosCache() {
+  try {
+    const { servicos } = await apiFetch('/servicos');
+    servicosCache = servicos;
+  } catch (err) { console.error(err); }
+}
+
+async function carregarServicos() {
+  await carregarServicosCache();
+  const tbody = document.getElementById('tbody-servicos');
+  if (!servicosCache.length) { tbody.innerHTML = '<tr><td colspan="4" class="empty">Nenhum serviço cadastrado.</td></tr>'; return; }
+  tbody.innerHTML = servicosCache.map(s => `
+    <tr>
+      <td><strong>${esc(s.nome)}</strong></td>
+      <td>${s.preco_padrao != null ? 'R$ ' + esc(Number(s.preco_padrao).toFixed(2)) : '—'}</td>
+      <td><span class="badge badge-${s.ativo ? 'ativo' : 'inativo'}">${s.ativo ? 'Ativo' : 'Inativo'}</span></td>
+      <td style="display:flex;gap:6px">
+        <button class="btn btn-sm btn-outline btn-editar-servico" data-id="${esc(s.id)}"><i class="ti ti-edit"></i></button>
+        <button class="btn btn-sm btn-outline btn-excluir-servico" data-id="${esc(s.id)}" data-nome="${esc(s.nome)}"><i class="ti ti-trash"></i></button>
+      </td>
+    </tr>`).join('');
+
+  tbody.querySelectorAll('.btn-editar-servico').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const s = servicosCache.find(x => x.id === btn.dataset.id);
+      if (s) abrirFormServico(s);
+    });
+  });
+
+  tbody.querySelectorAll('.btn-excluir-servico').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      if (!confirm(`Excluir o serviço "${btn.dataset.nome}"? Agendamentos já criados com esse serviço não são afetados.`)) return;
+      try {
+        await apiFetch(`/servicos/${btn.dataset.id}`, { method: 'DELETE' });
+        carregarServicos();
+      } catch (err) { alert('Erro: ' + err.message); }
+    });
+  });
+}
+
+function abrirFormServico(s) {
+  servicoEditandoId = s ? s.id : null;
+  document.getElementById('sv-nome').value = s ? s.nome : '';
+  document.getElementById('sv-preco').value = s && s.preco_padrao != null ? s.preco_padrao : '';
+  document.querySelector('#form-servico h3').textContent = s ? 'Editar serviço' : 'Adicionar serviço';
+  document.getElementById('btn-salvar-servico').textContent = s ? 'Salvar alterações' : 'Salvar';
+  document.getElementById('form-servico').style.display = 'block';
+}
+
+document.getElementById('btn-novo-servico').addEventListener('click', () => abrirFormServico(null));
+document.getElementById('btn-cancelar-servico').addEventListener('click', () => {
+  document.getElementById('form-servico').style.display = 'none';
+  servicoEditandoId = null;
+});
+document.getElementById('btn-salvar-servico').addEventListener('click', async () => {
+  const nome = document.getElementById('sv-nome').value.trim();
+  const preco = document.getElementById('sv-preco').value;
+  if (!nome) { mostrarToast('toast-servico', 'error', 'O nome do serviço é obrigatório.'); return; }
+  try {
+    if (servicoEditandoId) {
+      await apiFetch(`/servicos/${servicoEditandoId}`, { method: 'PATCH', body: JSON.stringify({ nome, precoPadrao: preco }) });
+      mostrarToast('toast-servico', 'success', 'Serviço atualizado!');
+    } else {
+      await apiFetch('/servicos', { method: 'POST', body: JSON.stringify({ nome, precoPadrao: preco }) });
+      mostrarToast('toast-servico', 'success', 'Serviço criado!');
+    }
+    document.getElementById('form-servico').style.display = 'none';
+    servicoEditandoId = null;
+    carregarServicos();
+  } catch (err) { mostrarToast('toast-servico', 'error', err.message); }
+});
 
 // ============================================================
 // DENTISTAS

@@ -1046,6 +1046,106 @@ router.patch('/planos/:id', adminAuth, async (req, res) => {
 });
 
 // ============================================================
+// GET /api/admin/servicos — lista todos os serviços (inclui
+// inativos, para a tela de gestão poder reativar se precisar).
+// ============================================================
+router.get('/servicos', adminAuth, async (req, res) => {
+  try {
+    const { rows } = await query('SELECT id, nome, preco_padrao, ativo FROM servicos ORDER BY nome');
+    res.json({ servicos: rows });
+  } catch (err) {
+    console.error('[ADMIN SERVICOS GET]', err.message);
+    res.status(500).json({ erro: 'Erro ao buscar serviços.' });
+  }
+});
+
+// ============================================================
+// POST /api/admin/servicos — cria um novo serviço.
+// ============================================================
+router.post('/servicos', adminAuth, async (req, res) => {
+  const { nome, precoPadrao } = req.body;
+  if (!nome) return res.status(400).json({ erro: 'Nome do serviço é obrigatório.' });
+
+  try {
+    const { rows } = await query(
+      `INSERT INTO servicos (nome, preco_padrao) VALUES ($1, $2)
+       RETURNING id, nome, preco_padrao, ativo`,
+      [nome.trim(), precoPadrao != null && precoPadrao !== '' ? Number(precoPadrao) : null]
+    );
+
+    console.log(`[ADMIN] ${req.admin.email} criou o serviço "${nome}"`);
+
+    res.status(201).json({ mensagem: 'Serviço criado.', servico: rows[0] });
+  } catch (err) {
+    if (err.code === '23505') { // unique_violation
+      return res.status(409).json({ erro: 'Já existe um serviço com esse nome.' });
+    }
+    console.error('[ADMIN SERVICOS POST]', err.message);
+    res.status(500).json({ erro: 'Erro ao criar serviço.' });
+  }
+});
+
+// ============================================================
+// PATCH /api/admin/servicos/:id — edita nome, preço padrão ou
+// ativa/desativa um serviço. Desativar não apaga o histórico —
+// agendamentos antigos continuam guardando o nome do serviço
+// como texto, independente desta tabela.
+// ============================================================
+router.patch('/servicos/:id', adminAuth, async (req, res) => {
+  const { id } = req.params;
+  const { nome, precoPadrao, ativo } = req.body;
+  const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+  if (!uuidRegex.test(id)) return res.status(400).json({ erro: 'Serviço inválido.' });
+
+  try {
+    const { rows } = await query(
+      `UPDATE servicos
+       SET nome = COALESCE($1, nome),
+           preco_padrao = $2,
+           ativo = COALESCE($3, ativo)
+       WHERE id = $4
+       RETURNING id, nome, preco_padrao, ativo`,
+      [nome ? nome.trim() : null, precoPadrao != null && precoPadrao !== '' ? Number(precoPadrao) : null, ativo, id]
+    );
+
+    if (!rows.length) return res.status(404).json({ erro: 'Serviço não encontrado.' });
+
+    console.log(`[ADMIN] ${req.admin.email} editou o serviço ${rows[0].nome}`);
+
+    res.json({ mensagem: 'Serviço atualizado.', servico: rows[0] });
+  } catch (err) {
+    if (err.code === '23505') {
+      return res.status(409).json({ erro: 'Já existe um serviço com esse nome.' });
+    }
+    console.error('[ADMIN SERVICOS PATCH]', err.message);
+    res.status(500).json({ erro: 'Erro ao atualizar serviço.' });
+  }
+});
+
+// ============================================================
+// DELETE /api/admin/servicos/:id — remove um serviço da lista.
+// Não afeta agendamentos já criados (eles guardam o nome do
+// serviço como texto simples, sem depender desta tabela).
+// ============================================================
+router.delete('/servicos/:id', adminAuth, async (req, res) => {
+  const { id } = req.params;
+  const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+  if (!uuidRegex.test(id)) return res.status(400).json({ erro: 'Serviço inválido.' });
+
+  try {
+    const { rows } = await query('DELETE FROM servicos WHERE id = $1 RETURNING id', [id]);
+    if (!rows.length) return res.status(404).json({ erro: 'Serviço não encontrado.' });
+
+    console.log(`[ADMIN] ${req.admin.email} excluiu o serviço ${id}`);
+
+    res.json({ mensagem: 'Serviço excluído.' });
+  } catch (err) {
+    console.error('[ADMIN SERVICOS DELETE]', err.message);
+    res.status(500).json({ erro: 'Erro ao excluir serviço.' });
+  }
+});
+
+// ============================================================
 // GET /api/admin/stats — estatísticas gerais
 // ============================================================
 router.get('/stats', adminAuth, async (req, res) => {
