@@ -26,7 +26,11 @@ app.use(helmet({
 scriptSrc:  ["'self'", "'unsafe-inline'", "https://cdn.jsdelivr.net"],
 styleSrc:   ["'self'", "'unsafe-inline'", "https://cdn.jsdelivr.net"],
 fontSrc:    ["'self'", "https://cdn.jsdelivr.net"],
-imgSrc:     ["'self'", 'data:'],
+// 'https:' (não um domínio específico) porque a foto de profissional
+// aceita qualquer URL de imagem que o admin cole (Imgur, Google Drive,
+// etc.) — travar a uma lista fixa de domínios quebraria esse recurso
+// para qualquer serviço de hospedagem que não estivesse na lista.
+imgSrc:     ["'self'", 'data:', 'https:'],
     },
   },
   hsts: {
@@ -45,7 +49,7 @@ const origens = process.env.NODE_ENV === 'production'
 
 app.use(cors({
   origin: origens,
-  methods: ['GET', 'POST', 'PATCH'],
+  methods: ['GET', 'POST', 'PATCH', 'DELETE'],
   allowedHeaders: ['Content-Type', 'Authorization'],
   credentials: true,
 }));
