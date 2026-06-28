@@ -84,6 +84,7 @@
     .agenda-bloco .ab-tag.tag-pendente { color: #854F0B; }
     .agenda-bloco .ab-tag.tag-parcial { color: #92400E; }
     .agenda-bloco .btn-marcar-pago-rapido { position: absolute; top: 2px; right: 2px; width: 16px; height: 16px; border-radius: 50%; background: var(--bg); border: 1px solid var(--green-border); color: var(--green-dark); font-size: 10px; display: flex; align-items: center; justify-content: center; cursor: pointer; line-height: 1; }
+    .agenda-bloco .icone-confirmar-pendente { position: absolute; top: 2px; left: 2px; width: 14px; height: 14px; border-radius: 50%; background: #854F0B; color: #fff; font-size: 9px; font-weight: 700; display: flex; align-items: center; justify-content: center; line-height: 1; }
     .agenda-bloco .btn-marcar-pago-rapido:hover { background: var(--green-light); }
 
     /* Linha indicando o horário atual, só visível na coluna de hoje quando dentro do range de horas exibido */
@@ -204,6 +205,13 @@
         <div class="stat-card"><div class="stat-n" id="st-cancelados">—</div><div class="stat-l">Cancelados</div></div>
         <div class="stat-card"><div class="stat-n" id="st-pacientes">—</div><div class="stat-l">Pacientes</div></div>
       </div>
+
+      <div class="resumo-grid" style="margin-bottom:18px">
+        <div class="resumo-card resumo-success"><div class="resumo-n" id="st-recebido-hoje">—</div><div class="resumo-l">Recebido hoje</div></div>
+        <div class="resumo-card resumo-warning"><div class="resumo-n" id="st-a-receber">—</div><div class="resumo-l">Total a receber (geral)</div></div>
+        <div class="resumo-card resumo-danger"><div class="resumo-n" id="st-faltas">—</div><div class="resumo-l">Faltas registradas</div></div>
+      </div>
+
       <div class="card">
         <div class="sec-header"><h2>Agendamentos de hoje</h2></div>
         <div id="lista-hoje"></div>
@@ -658,25 +666,44 @@ function esc(valor) {
 // ============================================================
 async function carregarDashboard() {
   try {
-    const { agendamentos: ag, pacientes: pac } = await apiFetch('/stats');
+    const { agendamentos: ag, pacientes: pac, financeiro } = await apiFetch('/stats');
     document.getElementById('st-hoje').textContent = ag.hoje;
     document.getElementById('st-pendentes').textContent = ag.pendentes;
     document.getElementById('st-confirmados').textContent = ag.confirmados;
     document.getElementById('st-realizados').textContent = ag.realizados;
     document.getElementById('st-cancelados').textContent = ag.cancelados;
     document.getElementById('st-pacientes').textContent = pac.total;
+    document.getElementById('st-recebido-hoje').textContent = 'R$ ' + financeiro.recebidoHoje.toFixed(2);
+    document.getElementById('st-a-receber').textContent = 'R$ ' + financeiro.totalAReceber.toFixed(2);
+    document.getElementById('st-faltas').textContent = ag.faltas;
 
     const hoje = formatarDataYMD(new Date());
     const { agendamentos } = await apiFetch(`/agendamentos?data=${hoje}`);
     const lista = document.getElementById('lista-hoje');
     if (!agendamentos.length) { lista.innerHTML = '<p class="empty">Nenhuma consulta hoje.</p>'; return; }
-    lista.innerHTML = `<table style="width:100%;border-collapse:collapse">
+
+    // Pendentes primeiro — é a ação mais urgente do dia (confirmar
+    // com o paciente), então não deve ficar perdida no meio da lista.
+    const ordenados = [...agendamentos].sort((a, b) => {
+      if (a.status === 'pendente' && b.status !== 'pendente') return -1;
+      if (a.status !== 'pendente' && b.status === 'pendente') return 1;
+      return new Date(a.data_hora) - new Date(b.data_hora);
+    });
+
+    const totalPendentes = agendamentos.filter(a => a.status === 'pendente').length;
+    const avisoPendentes = totalPendentes > 0
+      ? `<p style="font-size:12px;color:#854F0B;background:#FEF9C3;padding:8px 10px;border-radius:8px;margin-bottom:10px">
+           <i class="ti ti-alert-triangle"></i> ${totalPendentes} consulta${totalPendentes > 1 ? 's' : ''} de hoje ainda ${totalPendentes > 1 ? 'precisam' : 'precisa'} de confirmação.
+         </p>`
+      : '';
+
+    lista.innerHTML = avisoPendentes + `<table style="width:100%;border-collapse:collapse">
       <thead><tr><th style="padding:8px;font-size:11px;color:var(--text2);text-align:left">Paciente</th><th style="padding:8px;font-size:11px;color:var(--text2);text-align:left">Serviço</th><th style="padding:8px;font-size:11px;color:var(--text2);text-align:left">Horário</th><th style="padding:8px;font-size:11px;color:var(--text2);text-align:left">Status</th></tr></thead>
-      <tbody>${agendamentos.map(a => `<tr>
+      <tbody>${ordenados.map(a => `<tr style="${a.status === 'pendente' ? 'background:#FEFCE8' : ''}">
         <td style="padding:8px;font-size:13px">${esc(a.paciente_nome)}</td>
         <td style="padding:8px;font-size:13px">${esc(a.servico)}</td>
         <td style="padding:8px;font-size:13px">${fmtData(a.data_hora)}</td>
-        <td style="padding:8px"><span class="badge badge-${esc(a.status)}">${esc(a.status)}</span></td>
+        <td style="padding:8px"><span class="badge badge-${esc(a.status)}">${esc(a.status)}</span>${a.status === 'pendente' ? ' <i class="ti ti-alert-triangle" style="color:#854F0B;font-size:12px" title="Precisa confirmar"></i>' : ''}</td>
       </tr>`).join('')}</tbody></table>`;
   } catch (err) { console.error(err); }
 }
@@ -850,6 +877,7 @@ function renderizarGrade() {
           return `
           <div class="agenda-bloco ${classe}" data-id="${esc(a.id)}">
             ${mostraAtalhoPagar ? `<span class="btn-marcar-pago-rapido" data-id="${esc(a.id)}" title="Marcar como totalmente pago">✓</span>` : ''}
+            ${a.status === 'pendente' ? `<span class="icone-confirmar-pendente" title="Ainda não confirmado">!</span>` : ''}
             <span class="ab-nome">${esc(a.paciente_nome)}</span>
             <span class="ab-serv">${esc(a.servico)}</span>
             ${tag}
