@@ -26,8 +26,30 @@ router.post('/cadastro', async (req, res) => {
     return res.status(400).json({ erro: 'Campos obrigatórios ausentes.' });
   }
 
+  // Limite de tamanho — sem isso, nada impede o envio de strings
+  // muito grandes (ex: vários MB) nesses campos antes de chegar ao banco.
+  if (nome.length > 100 || sobrenome.length > 100 || email.length > 150) {
+    return res.status(400).json({ erro: 'Um ou mais campos excedem o tamanho máximo permitido.' });
+  }
+
   if (senha.length < 8) {
     return res.status(400).json({ erro: 'Senha deve ter no mínimo 8 caracteres.' });
+  }
+
+  // Bloqueia os casos mais triviais (mesmo caractere repetido,
+  // sequência numérica simples, ou senhas extremamente comuns)
+  // sem exigir regras complexas de composição — só evita o pior
+  // caso. Comparação exata contra a lista, não por prefixo: uma
+  // senha real como "Senha1234" não deve ser confundida com a
+  // senha trivial "senha123" só porque compartilha letras iniciais.
+  const senhaMinuscula = senha.toLowerCase();
+  const senhasComuns = ['password', 'password123', 'senha123', '12345678', 'qwerty123', '11111111', '00000000'];
+  const senhaTrivial =
+    /^(.)\1*$/.test(senha) ||
+    /^(?:0123456789|1234567890|123456789|12345678)$/.test(senha) ||
+    senhasComuns.includes(senhaMinuscula);
+  if (senhaTrivial) {
+    return res.status(400).json({ erro: 'Essa senha é muito simples. Escolha uma senha mais segura.' });
   }
 
   const emailRe = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -93,6 +115,20 @@ router.post('/cadastro', async (req, res) => {
     });
 
   } catch (err) {
+    // Violação de unicidade do banco (código 23505) — a última linha
+    // de defesa contra condição de corrida: as checagens de SELECT
+    // acima dão uma mensagem amigável no caso comum, mas duas
+    // requisições quase simultâneas ainda poderiam passar por elas
+    // antes de qualquer uma inserir. O índice único no banco garante
+    // que isso nunca resulta em cadastro duplicado de fato — só
+    // precisamos tratar o erro aqui para devolver uma mensagem clara
+    // em vez de um 500 genérico.
+    if (err.code === '23505') {
+      const detalhe = err.constraint && err.constraint.includes('cpf')
+        ? 'CPF já cadastrado.'
+        : 'E-mail já cadastrado.';
+      return res.status(409).json({ erro: detalhe });
+    }
     console.error('[CADASTRO] Erro:', err.message);
     res.status(500).json({ erro: 'Erro interno. Tente novamente.' });
   }
